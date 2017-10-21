@@ -1,10 +1,12 @@
 # clj-geo
 
-A Clojure library designed to ... well, that part is up to you.
+collections of fns to help working with geo data
 
 ## Usage
 
-FIXME
+clj-geo.dateset namespace should contain fns for load / transform of open source datasets. All fns that load external data are doing that from root directory specified in clj-geo.env/*dataset-path*
+
+examine clj-geo.example namespace for examples
 
 ## License
 

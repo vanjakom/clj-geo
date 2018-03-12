@@ -15,6 +15,9 @@
                   [clj-http "2.2.0"]
                   [lein-light-nrepl "0.3.2"]
 
-                  [com.mungolab/clj-common "0.1.0-SNAPSHOT"]
+                  [com.mungolab/clj-common "0.2.0-SNAPSHOT"]
+                  [com.mungolab/clj-scraper "0.1.0-SNAPSHOT"]
 
-                  [org.geotools/gt-shapefile "15.1"]])
+                  [org.geotools/gt-main "18.0"]
+                  [org.geotools/gt-shapefile "18.0"]
+                  [org.geotools/gt-swing "18.0"]])

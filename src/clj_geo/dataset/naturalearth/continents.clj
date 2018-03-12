@@ -1,45 +1,10 @@
-(ns clj-geo.dataset.naturalearth.continents)
+(ns clj-geo.dataset.naturalearth.continents
+  (:require
+    [clj-common.path :as path]
+    [clj-geo.env :as env]
+    [clj-geo.import.shp :as shp]))
 
-(require '[clj-common.path :as path])
-
-(require '[clj-geo.env :as env])
-
-(import org.geotools.data.FileDataStoreFinder)
-
-(defn load-file-data-store [path]
-  (let [datastore-finder (FileDataStoreFinder/getDataStore
-                           (new java.io.File (path/path->string path)))
-        feature-source (.getFeatureSource datastore-finder)]
-    (.toArray (.getFeatures feature-source))))
-
-(defn feature->map [feature]
-  (apply
-    merge
-    (map
-      (fn [property]
-        {
-          (keyword (.getLocalPart (.getName property)))
-          (.getValue property)})
-      (.getProperties feature))))
-
-(defn append-area [feature-map]
-  (assoc
-    feature-map
-    :area
-    (.getArea (:the_geom feature-map))))
-
-(defn replace-geom [feature-map]
-  (let [poly (:the_geom feature-map)]
-    (assoc
-      feature-map
-      :the_geom
-      (map
-        (fn [geometry-index]
-          (map
-            (fn [coordinate]
-              {:longitude (.x coordinate) :latitude (.y coordinate)})
-            (.getCoordinates (.getGeometryN poly geometry-index))))
-        (range (.getNumGeometries poly))))))
+; http://www.naturalearthdata.com
 
 (defn normalize-feature-class [feature-map]
   (assoc
@@ -87,15 +52,15 @@
                "naturalearthdata.com"
                "ne_110m_geography_regions_polys"
                "ne_110m_geography_regions_polys.shp")]
-    (let [features (load-file-data-store path)]
+    (let [features (shp/load-file-data-store path)]
       (filter
         #(= (:featurecla %1) :continent)
         (map
           (comp
             normalize-continent-name
             normalize-feature-class
-            replace-geom
-            append-area
-            feature->map)
+            shp/replace-geom
+            shp/append-area
+            shp/feature->map)
           features)))))
 

@@ -37,8 +37,7 @@
     (create-dealers)))
 
 (defn render-brompton-dealers-world-coverage []
-  (let [location-convert (partial raster/location->point 18000 9000)
-        image-context (background/create-black-region-countries-background {})
+  (let [image-context (background/create-black-region-countries-background {})
         locations (create-brompton-locations)]
     (raster/draw-locations
       {
@@ -51,8 +50,7 @@
 
 
 (defn render-brompton-dealers-europe-coverage []
-  (let [location-convert (partial raster/location->point 18000 9000)
-        image-context (background/create-black-region-countries-background {})
+  (let [image-context (background/create-black-region-countries-background {})
         locations (create-brompton-locations)]
     (raster/draw-locations
       {

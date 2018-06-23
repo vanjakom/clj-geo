@@ -1,7 +1,14 @@
-(ns clj-geo.env)
+(ns clj-geo.env
+  (:require
+    [clj-common.jvm :as jvm]))
 
 (require '[clj-common.path :as path])
 
 (def ^:dynamic *dataset-path*
-  (path/string->path
-    "/Users/vanja/projects/clj-geo/data"))
+  ["Users" "vanja" "projects" "clj-geo" "data"])
+
+(def ^:dynamic *tile-cache-path*
+  ["Users" "vanja" "projects" "clj-geo" "data" "tile-cache"])
+
+(def ^:dynamic *thunderforest-apikey*
+  (jvm/environment-variable "THUNDERFOREST_APIKEY"))

@@ -59,8 +59,6 @@
           (comp
             normalize-continent-name
             normalize-feature-class
-            shp/replace-geom
-            shp/append-area
             shp/feature->map)
           features)))))
 

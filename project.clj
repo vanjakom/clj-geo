@@ -7,8 +7,8 @@
                   :nrepl-middleware
                   [lighttable.nrepl.handler/lighttable-ops]}
   :repositories [
-                  ["java.net repo" "http://download.java.net/maven/2"]
-                  ["geotools repo" "http://download.osgeo.org/webdav/geotools"]]
+                  ["java.net repo" "https://download.java.net/maven/2"]
+                  ["geotools repo" "https://download.osgeo.org/webdav/geotools"]]
   :dependencies [
                   [org.clojure/clojure "1.8.0"]
                   [org.clojure/data.json "0.2.6"]

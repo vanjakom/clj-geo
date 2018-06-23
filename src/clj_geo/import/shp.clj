@@ -11,43 +11,67 @@
         feature-source (.getFeatureSource datastore-finder)]
     (.toArray (.getFeatures feature-source))))
 
+(defn parse-geom [value]
+  (map
+    (fn [geometry-index]
+      (let [geometry (.getGeometryN value geometry-index)]
+        (with-meta
+          (if (instance? Polygon geometry)
+            (map
+              (fn [coordinate]
+                {:longitude (.x coordinate) :latitude (.y coordinate)})
+              (.getCoordinates (.getExteriorRing geometry)))
+            (map
+              (fn [coordinate]
+                {:longitude (.x coordinate) :latitude (.y coordinate)})
+              (.getCoordinates geometry)))
+          {
+            :geometry-class (.getClass geometry) :num-geometries (.getNumGeometries geometry)})))
+    (range (.getNumGeometries value))))
+
+(defn deserialize-value [key value]
+  (condp = key
+    :the_geom (parse-geom value)
+    (condp = (type value)
+      nil nil
+      Integer value
+      Long value
+      Double value
+      Boolean value
+      String value
+      com.vividsolutions.jts.geom.Point {:x (.getX value) :y (.getY value)}
+      (str (.getName (.getClass value)) " - " (.toString value)))))
+
+(comment
+  (deserialize-value "test")
+
+  (deserialize-value (new java.net.URI "http://test.com")))
+
 (defn feature->map [feature]
   (with-meta
     (apply
       merge
       (map
         (fn [property]
-          {
-            (keyword (.getLocalPart (.getName property)))
-            (.getValue property)})
+          (let [key (keyword (.toLowerCase (.getLocalPart (.getName property))))]
+            {
+              key
+              (deserialize-value key (.getValue property))}))
         (.getProperties feature)))
     {
       :feature-class (.getClass feature)}))
 
+; depricated, not used any more
 (defn append-area [feature-map]
   (assoc
     feature-map
     :area
     (.getArea (:the_geom feature-map))))
 
+; deprecated, feature->map will fix this ...
 (defn replace-geom [feature-map]
-  (let [poly (:the_geom feature-map)]
-    (assoc
-      feature-map
-      :the_geom
-      (map
-        (fn [geometry-index]
-          (let [geometry (.getGeometryN poly geometry-index)]
-            (with-meta
-              (if (instance? Polygon geometry)
-                (map
-                  (fn [coordinate]
-                    {:longitude (.x coordinate) :latitude (.y coordinate)})
-                  (.getCoordinates (.getExteriorRing geometry)))
-                (map
-                  (fn [coordinate]
-                    {:longitude (.x coordinate) :latitude (.y coordinate)})
-                  (.getCoordinates geometry)))
-              {
-                :geometry-class (.getClass geometry) :num-geometries (.getNumGeometries geometry)})))
-        (range (.getNumGeometries poly))))))
+  (assoc
+    feature-map
+    :the_geom
+    (parse-geom
+      (:the_geom feature-map))))

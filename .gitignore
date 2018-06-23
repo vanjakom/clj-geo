@@ -8,3 +8,7 @@ pom.xml.asc
 *.class
 /.lein-*
 /.nrepl-port
+logging
+src/clj_geo/dataset/.DS_Store
+
+logging

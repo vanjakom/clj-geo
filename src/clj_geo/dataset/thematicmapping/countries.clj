@@ -7,7 +7,7 @@
 ; http://thematicmapping.org/downloads/
 
 (defn create-countries
-  "Uses country borders dateset to filter out continents."
+  "Uses country borders dataset to filter out continents."
   ^{
      :dataset ["TM_WORLD_BORDERS-0"]}
   []
@@ -18,8 +18,8 @@
                "TM_WORLD_BORDERS-0.3.shp")]
     (let [features (shp/load-file-data-store path)]
       (map
-        (comp
-          shp/replace-geom
-          shp/append-area
-          shp/feature->map)
+        shp/feature->map
         features))))
+
+(comment
+  (first (:the_geom (first (create-countries)))))

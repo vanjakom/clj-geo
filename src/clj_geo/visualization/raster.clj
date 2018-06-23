@@ -109,22 +109,28 @@
                               point-size 1
                               color draw/color-green}}
                       locations]
-  (let [location-convert-fn (partial
-                              location->point
-                              (draw/context-width image-context)
-                              (draw/context-height image-context))]
+  (let [context-width (draw/context-width image-context)
+        context-height (draw/context-height image-context)
+        location-convert-fn (partial location->point context-width context-height)]
     (doseq [location locations]
       (let [points (if (> point-size 1)
-                     (map
-                       (fn [[x-offset y-offset]]
-                         (draw/offset-point (location-convert-fn location) x-offset y-offset))
-                       (mapcat
-                         (fn [x]
-                           (map
-                             (fn [y]
-                               [x y])
-                             (range (- (/ point-size 2)) (/ point-size 2))))
-                         (range (- (/ point-size 2)) (/ point-size 2))))
+                     (filter
+                       (fn [{x :x y :y}]
+                         (and
+                           (> x 0)
+                           (< x context-width)
+                           (> y 0)
+                           (< y context-height)))
+                       (map
+                         (fn [[x-offset y-offset]]
+                           (draw/offset-point (location-convert-fn location) x-offset y-offset))
+                         (mapcat
+                           (fn [x]
+                             (map
+                               (fn [y]
+                                 [x y])
+                               (range (- (/ point-size 2)) (/ point-size 2))))
+                           (range (- (/ point-size 2)) (/ point-size 2)))))
                      [(location-convert-fn location)])]
         (draw/set-points
           image-context

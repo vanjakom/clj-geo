@@ -6,7 +6,11 @@ collections of fns to help working with geo data
 
 clj-geo.dateset namespace should contain fns for load / transform of open source datasets. All fns that load external data are doing that from root directory specified in clj-geo.env/*dataset-path*
 
+clj-geo/env is extracting some values from environment variables.
+
+
 examine clj-geo.example namespace for examples
+
 
 ### Datasets prepare
 

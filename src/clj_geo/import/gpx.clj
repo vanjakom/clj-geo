@@ -8,5 +8,8 @@
 (defn read [path]
   (xml/parse (fs/input-stream path)))
 
+(defn read-stream [input-stream]
+  (xml/parse input-stream))
+
 ; understand format and prepare default schema, currently I'm reading only geocaching.com gpx
 

@@ -1,9 +1,13 @@
 (ns clj-geo.visualization.trekmate
+  (:use
+    clj-common.clojure
+    clj-common.test)
   (:require
     [clj-common.2d :as draw]
     [clj-common.logging :as logging]
     [clj-geo.import.osm :as osm-import]
-    [clj-geo.visualization.osm :as osm-render]))
+    [clj-geo.visualization.osm :as osm-render]
+    [maply-backend-tools.data.pins :as pins]))
 
 
 ; custom drawing logic / some of fns could go to clj-common
@@ -13,7 +17,6 @@
           (partition 2 1 point-seq)]
     (let [dx (- x2 x1)
           dy (- y2 y1)]
-      (logging/report [[x1 y1] [x2 y2] dx dy])
       (if (not (and (= dx 0) (= dy 0)))
         (if (or (= dx 0) (> (Math/abs (float (/ dy dx))) 1))
           (if (< dy 0)
@@ -76,14 +79,70 @@
     [(int (* (- longitude min-longitude) resolution))
      (int (* (- latitude min-latitude) resolution))]))
 
+; pin matching functions
 
+(todo-warn "implement default pin ...")
+(def default-pin nil)
 
+; rendering functions
 
+(defn render-on-tile [configuration tile routes locations]
+  (let [route-thickness (or (:route-thickness configuration) 1)
+        route-color (or (:route-color configuration) draw/color-red)
+        background-context (draw/input-stream->image (:data tile))
+        pin-match-fn (or (:pin-match-fn configuration) pins/calculate-pins)
+        pin-load-fn (cond
+                      (= (:pin-size configuration) :small) pins/load-small-pin
+                      (= (:pin-size configuration) :medium) pins/load-medium-pin
+                      (= (:pin-size configuration) :large) pins/load-large-pin
+                      :else pins/load-medium-pin)
+        location-convert-fn (fn [location]
+                              (let [[x y] (osm-import/calculate-x-y (:zoom tile) location)]
+                                [
+                                  (int (- x (* (:x tile) 256)))
+                                  (int (- y (* (:y tile) 256)))]))
+        route-set-point-fn (create-set-point-with-radius
+                             (create-set-point-raw-java
+                               background-context route-color)
+                             route-thickness)
+        ; to be used when drawing pins to ensure pin is inside image
+        location-test-fn (fn [[x y]]
+                           (and
+                             (> x 0)
+                             (> y 0)
+                             (< x (draw/context-width background-context))
+                             (< y (draw/context-height background-context))))]
+    (doseq [route routes]
+      (draw-line
+        route-set-point-fn
+        (map
+          location-convert-fn
+          (:locations route))))
+    (doseq [location locations]
+      (let [point (location-convert-fn location)]
+        (logging/report {:location location :point point})
+        (if (location-test-fn point)
+          (do
+            (logging/report {:location location})
+            (if-let [pin (first (pin-match-fn (:tags location)))]
+              (do
+                (logging/report {:location location :point point :pin pin})
+                (draw/draw-image
+                  background-context
+                  point
+                  (pin-load-fn pin))))))))
+    background-context))
 
 (defn render-osm-map [configuration zoom tile-data-seq routes locations]
   (let [route-thickness (or (:route-thickness configuration) 1)
         route-color (or (:route-color configuration) draw/color-red)
         background-context (osm-render/render-tiles tile-data-seq)
+        pin-match-fn (or (:pin-match-fn configuration) pins/calculate-pins)
+        pin-load-fn (cond
+                      (= (:pin-size configuration) :small) pins/load-small-pin
+                      (= (:pin-size configuration) :medium) pins/load-medium-pin
+                      (= (:pin-size configuration) :large) pins/load-large-pin
+                      :else pins/load-medium-pin)
         [x-min x-max y-min y-max] (reduce
                                     (fn [[x-min x-max y-min y-max] tile]
                                       [
@@ -101,13 +160,51 @@
                                   (int (- x offset-x))
                                   (int (- y offset-y))]))
         route-set-point-fn (create-set-point-with-radius
-                       (create-set-point-raw-java
-                         background-context route-color)
-                       route-thickness)]
+                             (create-set-point-raw-java
+                               background-context route-color)
+                             route-thickness)
+        ; to be used when drawing pins to ensure pin is inside image
+        location-test-fn (fn [[x y]]
+                           (and
+                             (> x 0)
+                             (> y 0)
+                             (< x (draw/context-width background-context))
+                             (< y (draw/context-height background-context))))]
     (doseq [route routes]
       (draw-line
         route-set-point-fn
         (map
           location-convert-fn
           (:locations route))))
+    (doseq [location locations]
+      (let [point (location-convert-fn location)]
+        (logging/report {:location location :point point})
+        (if (location-test-fn point)
+          (do
+            (logging/report {:location location})
+            (if-let [pin (first (pin-match-fn (:tags location)))]
+              (do
+                (logging/report {:location location :point point :pin pin})
+                (draw/draw-image
+                  background-context
+                  point
+                  (pin-load-fn pin))))))))
     background-context))
+
+(defn plot
+  "resolution - how many pixels will 1 degree of longitude / latitude take"
+  [resolution min-longitude max-longitude min-latitude max-latitude locations]
+  (let [location->point (create-location->point
+                          resolution min-longitude max-longitude min-latitude max-latitude)
+        image-context (create-java-context
+                        resolution min-longitude max-longitude min-latitude max-latitude)
+        set-point-fn (create-set-point-java
+                       image-context
+                       draw/color-white)]
+    (draw/write-background image-context draw/color-black)
+    (draw-line
+      set-point-fn
+      (map
+        location->point
+        locations))
+    image-context))

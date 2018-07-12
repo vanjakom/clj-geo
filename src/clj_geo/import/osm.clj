@@ -1,14 +1,150 @@
 (ns clj-geo.import.osm
+  (:use
+    clj-common.clojure)
   (:require
+    [clojure.xml :as xml]
+    [clj-common.as :as as]
     [clj-common.logging :as logging]
     [clj-common.io :as io]
     [clj-common.http :as http]
     [clj-common.cache :as cache]
+    [clj-common.view :as view]
     [clj-geo.env :as env])
   (:import
     java.io.InputStream))
 
 ; model fns
+
+
+; OSM file parser
+
+(comment
+  (def template (xml/parse
+                  (clj-common.localfs/input-stream
+                    (clj-common.path/string->path "/Users/vanja/Downloads/map-2.osm"))))
+
+  (parse-entry (first (filter #(= (:tag %) :way) (:content template)))))
+
+
+(declare parse-node)
+(declare parse-tag)
+(declare parse-way)
+(declare parse-node-ref)
+
+(defn parse-entry [entry]
+  (cond
+    (= (:tag entry) :node) (parse-node entry)
+    (= (:tag entry) :tag) (parse-tag entry)
+    (= (:tag entry) :way) (parse-way entry)
+    (= (:tag entry) :nd) (parse-node-ref entry)
+    :default nil))
+
+
+(defn parse-node [entry]
+  (let [longitude (as/double (:lon (:attrs entry)))
+        latitude (as/double (:lat (:attrs entry)))
+        id (as/long (:id (:attrs entry)))
+        content (map parse-entry (:content entry))
+        tags (reduce
+               (fn [tags {key :key value :value}]
+                 (assoc
+                   tags
+                   key
+                   value))
+               {}
+               (filter #(= (:type %) :tag) content))]
+    {
+      :type :node
+      :id id
+      :longitude longitude
+      :latitude latitude
+      :tags tags}))
+
+(defn parse-way [entry]
+  (let [id (as/long (:id (:attrs entry)))
+        content (map parse-entry (:content entry))
+        nodes (filter #(= (:type %) :node-ref) content)
+        tags (reduce
+               (fn [tags {key :key value :value}]
+                 (assoc
+                   tags
+                   key
+                   value))
+               {}
+               (filter #(= (:type %) :tag) content))]
+    {
+      :type :way
+      :id id
+      :nodes nodes
+      :tags tags}))
+
+(defn parse-tag [entry]
+  (let [key (:k (:attrs entry))
+        value (:v (:attrs entry))]
+    {
+      :type :tag
+      :key (keyword key)
+      :value value}))
+
+(defn parse-node-ref [entry]
+  (let [ref (as/long (:ref (:attrs entry)))]
+    {
+      :type :node-ref
+      :id ref}))
+
+
+
+(defn read-osm
+  "Reads fully in memory OSM file."
+  [input-stream]
+  (todo-warn "support relations")
+  (let [content (:content (xml/parse input-stream))
+        [bounds nodes ways] (reduce
+                              (fn [[bounds nodes ways] entry]
+                                (let [element (parse-entry entry)]
+                                  (cond
+                                    (= (:type element) :node) [bounds (conj nodes element) ways]
+                                    (= (:type element) :way) [bounds nodes (conj ways element)]
+                                    :default [bounds nodes ways])))
+                              [nil '() '()]
+                              content)]
+    {
+      :nodes nodes
+      :ways ways}))
+
+(defn merge-nodes-into-way
+  ([node-seq way-seq]
+   (let [node-map (view/seq->map :id node-seq)]
+     (map
+       (fn [way]
+         (assoc
+           way
+           :nodes
+           (map
+             #(get node-map (:id %))
+             (:nodes way))))
+       way-seq)))
+  ([osm]
+   (merge-nodes-into-way (:nodes osm) (:ways osm))))
+
+
+(comment
+  (read-osm (clj-common.localfs/input-stream
+              (clj-common.path/string->path "/Users/vanja/Downloads/map-2.osm")))
+
+
+
+
+  (:tags (first (filter
+                  #(= (:cycleway (:tags %)) "track")
+                  (merge-nodes-into-way
+                    (read-osm
+                      (clj-common.localfs/input-stream
+                        (clj-common.path/string->path "/Users/vanja/Downloads/map-2.osm")))))))
+  )
+
+; tiles
+
 
 (defn create-tile [zoom x y]
   {

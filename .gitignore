@@ -10,5 +10,6 @@ pom.xml.asc
 /.nrepl-port
 logging
 src/clj_geo/dataset/.DS_Store
-
+*/.DS_Store
+.DS_Store
 logging

@@ -41,9 +41,9 @@
 
 
 (defn parse-node [entry]
-  (let [longitude (as/double (:lon (:attrs entry)))
-        latitude (as/double (:lat (:attrs entry)))
-        id (as/long (:id (:attrs entry)))
+  (let [longitude (as/as-double (:lon (:attrs entry)))
+        latitude (as/as-double (:lat (:attrs entry)))
+        id (as/as-long (:id (:attrs entry)))
         content (map parse-entry (:content entry))
         tags (reduce
                (fn [tags {key :key value :value}]
@@ -61,7 +61,7 @@
       :tags tags}))
 
 (defn parse-way [entry]
-  (let [id (as/long (:id (:attrs entry)))
+  (let [id (as/as-long (:id (:attrs entry)))
         content (map parse-entry (:content entry))
         nodes (filter #(= (:type %) :node-ref) content)
         tags (reduce
@@ -87,12 +87,10 @@
       :value value}))
 
 (defn parse-node-ref [entry]
-  (let [ref (as/long (:ref (:attrs entry)))]
+  (let [ref (as/as-long (:ref (:attrs entry)))]
     {
       :type :node-ref
       :id ref}))
-
-
 
 (defn read-osm
   "Reads fully in memory OSM file."
@@ -111,6 +109,17 @@
     {
       :nodes nodes
       :ways ways}))
+
+(defn stream-osm
+  "Streams parsed osm data. To be used for fast filtering."
+  [input-stream]
+
+  (map
+   parse-entry
+   (:content (xml/parse input-stream))))
+
+
+
 
 (defn merge-nodes-into-way
   ([node-seq way-seq]
@@ -237,9 +246,14 @@
 
 
 ; retrieval fns
+(defn create-stamen-url [{zoom :zoom x :x y :y}]
+  (str "http://tile.stamen.com/toner/" zoom "/" x "/" y ".png"))
 
-(defn create-toner-lines-url [{zoom :zoom x :x y :y}]
+(defn create-stamen-lines-url [{zoom :zoom x :x y :y}]
   (str "http://tile.stamen.com/toner-lines/" zoom "/" x "/" y ".png"))
+
+(defn create-stamen-watercolor-url [{zoom :zoom x :x y :y}]
+  (str "http://tile.stamen.com/watercolor/" zoom "/" x "/" y ".png"))
 
 (defn create-mapnik-from-osm-url [{zoom :zoom x :x y :y}]
   (str "http://tile.openstreetmap.org/" zoom "/" x "/" y ".png"))
@@ -258,7 +272,9 @@
 ; visit https://wiki.openstreetmap.org/wiki/Tile_servers
 (def tiles
   {
-    :stamen-lines (var create-toner-lines-url)
+    :stamen (var create-stamen-url)
+    :stamen-lines (var create-stamen-lines-url)
+    :stamen-watercolor (var create-stamen-watercolor-url)
     ; not working
     :mapnik-from-osm (var create-mapnik-from-osm-url)
     ; requires api key

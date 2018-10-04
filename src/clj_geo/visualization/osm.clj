@@ -21,7 +21,9 @@
     (draw/write-background
       image-context
       draw/color-white)
-    (doseq [tile tile-data-seq]
+    (doseq [tile (filter
+                   #(some? (:data %))
+                   tile-data-seq)]
       (let [image (draw/input-stream->image (:data tile))]
         (.drawImage
           graphics

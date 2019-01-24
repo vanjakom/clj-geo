@@ -20,19 +20,28 @@ examine clj-geo.example namespace for examples
 register for OKAPI customer API ( https://opencache.uk/okapi/signup.html )
 
 download full dump
-wget -o full-dump 'https://opencache.uk/okapi/services/replicate/fulldump?consumer_key=<CUSTOMER_KEY>'
+wget -O full-dump 'https://opencache.uk/okapi/services/replicate/fulldump?consumer_key=<CUSTOMER_KEY>'
 tar -xf full-dump
 rm full-dump
 
 this will generate index.json and partXXXXX.json
+
+or using environment variable
+wget -O full-dump "https://opencache.uk/okapi/services/replicate/fulldump?consumer_key=${OPENCACHE_UK_KEY}"
+
+latest dataset should be linked inside <DATA_DIR>/opencache.uk/latest containing part*.json files
 
 #### opencaching.de
 
 register for OKAPI customer API ( https://www.opencaching.de/okapi/signup.html )
 
 download full dump
-wget -o full-dump 'https://opencaching.de/okapi/services/replicate/fulldump?consumer_key=<CUSTOMER_KEY>'
+wget -O full-dump 'https://opencaching.de/okapi/services/replicate/fulldump?consumer_key=<CUSTOMER_KEY>'
 
+or using environment variable
+wget -O full-dump "https://opencaching.de/okapi/services/replicate/fulldump?consumer_key=${OPENCACHING_DE_KEY}"
+
+latest dataset should be linked inside <DATA_DIR>/opencaching.de/latest containing part*.json files
 
 ## links
 

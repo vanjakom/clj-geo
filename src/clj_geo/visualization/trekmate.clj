@@ -9,6 +9,7 @@
     [clj-geo.visualization.osm :as osm-render]
     [maply-backend-tools.data.pins :as pins]))
 
+(comment
 
 ; custom drawing logic / some of fns could go to clj-common
 
@@ -178,13 +179,13 @@
           (:locations route))))
     (doseq [location locations]
       (let [point (location-convert-fn location)]
-        (logging/report {:location location :point point})
+        ;(logging/report {:location location :point point})
         (if (location-test-fn point)
           (do
-            (logging/report {:location location})
+            ;(logging/report {:location location})
             (if-let [pin (first (pin-match-fn (:tags location)))]
               (do
-                (logging/report {:location location :point point :pin pin})
+                ;(logging/report {:location location :point point :pin pin})
                 (draw/draw-image
                   background-context
                   point
@@ -208,3 +209,4 @@
         location->point
         locations))
     image-context))
+ )

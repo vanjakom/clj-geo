@@ -18,6 +18,8 @@
 (declare parse-tag)
 (declare parse-way)
 (declare parse-node-ref)
+(declare parse-relation)
+(declare parse-member)
 
 (defn parse-entry [entry]
   (cond
@@ -25,6 +27,8 @@
     (= (:tag entry) :tag) (parse-tag entry)
     (= (:tag entry) :way) (parse-way entry)
     (= (:tag entry) :nd) (parse-node-ref entry)
+    (= (:tag entry) :relation) (parse-relation entry)
+    (= (:tag entry) :member) (parse-member entry)
     :default nil))
 
 (defn parse-node [entry]
@@ -78,6 +82,34 @@
     {
      :type :node-ref
      :id ref}))
+
+(defn parse-relation [entry]
+  (let [id (as/as-long (:id (:attrs entry)))
+        content (map parse-entry (:content entry))
+        members (filter #(= (:type %) :member) content)
+        tags (reduce
+              (fn [tags {key :key value :value}]
+                (assoc
+                 tags
+                 key
+                 value))
+              {}
+              (filter #(= (:type %) :tag) content))]
+    {
+     :type :relation
+     :id id
+     :members members
+     :tags tags}))
+
+(defn parse-member [entry]
+  (let [type (:type (:attrs entry))
+        ref (as/as-long (:ref (:attrs entry)))
+        role (:role (:attrs entry))]
+    {
+     :type :member
+     :ref-type type
+     :ref ref
+     :role role}))
 
 (defn read-osm
   "Reads fully in memory OSM file."

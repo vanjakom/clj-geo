@@ -83,10 +83,10 @@
        :zoom zoom
        :x (cond (< xtile 0) 0
                 (>= xtile zoom-shifted) (- zoom-shifted 1)
-                :else (int xtile))
+                :else (long xtile))
        :y (cond (< ytile 0) 0
                 (>= ytile zoom-shifted) (- zoom-shifted 1)
-                :else (int ytile))})))
+                :else (long ytile))})))
 
 (defn zoom->location->point [zoom]
   ;; zoom-shifted = 2 ^ zoom
@@ -125,6 +125,18 @@
         latitude-rad (Math/atan (Math/sinh (* Math/PI (- 1 (* 2 (/ (:y tile) zoom-shifted))))))
         latitude (Math/toDegrees latitude-rad)]
     {:longitude longitude :latitude latitude}))
+
+(defn tile->location-bounds [tile]
+  (let [upper-left-location (tile->location tile)
+        lower-right-location (tile->location (assoc
+                                              tile
+                                              :x (inc (:x tile))
+                                              :y (inc (:y tile))))]
+    [
+     (:longitude upper-left-location)
+     (:longitude lower-right-location)
+     (:latitude lower-right-location)
+     (:latitude upper-left-location)]))
 
 (defn calculate-tile-bounds-from-tile-seq
   [tile-seq]
@@ -167,3 +179,25 @@
   (let [min-tile ((zoom->location->tile zoom) {:longitude min-longitude :latitude min-latitude})
         max-tile ((zoom->location->tile zoom) {:longitude max-longitude :latitude max-latitude})]
     [zoom (:x min-tile) (:x max-tile) (:y min-tile) (:y max-tile)]))
+
+(defn calculate-location-bounds-from-tile-seq
+  [tile-seq]
+  (reduce
+   (fn [[state-min-lon state-max-lon state-min-lat state-max-lat]
+        [min-lon max-lon min-lat max-lat]]
+     [(min (or state-min-lon min-lon) min-lon)
+      (max (or state-max-lon max-lon) max-lon)
+      (min (or state-min-lat min-lat) min-lat)
+      (max (or state-max-lat max-lat) max-lat)])
+   [nil nil nil nil]
+   (map tile->location-bounds tile-seq)))
+
+(defn zoom-in->zoom-out->point
+  "Convert tile points from upper zoom level to lower one"
+  [zoom-in]
+  (fn [zoom-out]
+    (fn [point]
+      (let [[x-in y-in] point
+            zoom-diff (- zoom-in zoom-out)
+            divider (Math/pow 2 zoom-diff)]
+        [(rem (int (/ x-in divider)) 256) (rem (int (/ y-in divider)) 256)]))))

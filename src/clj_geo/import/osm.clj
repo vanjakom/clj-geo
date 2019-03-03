@@ -109,7 +109,7 @@
      :type :member
      :ref-type type
      :ref ref
-     :role role}))
+     :role (if (> (count role) 0) role nil)}))
 
 (defn read-osm
   "Reads fully in memory OSM file."

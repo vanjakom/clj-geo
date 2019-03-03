@@ -4,6 +4,8 @@ collections of fns to help working with geo data
 
 ## Usage
 
+[com.mungolab/clj-geo "0.1.0-SNAPSHOT"]
+
 clj-geo.dateset namespace should contain fns for load / transform of open source datasets. All fns that load external data are doing that from root directory specified in clj-geo.env/*dataset-path*
 
 clj-geo/env is extracting some values from environment variables.
@@ -46,7 +48,9 @@ latest dataset should be linked inside <DATA_DIR>/opencaching.de/latest containi
 ## links
 
 http://www.naturalearthdata.com
+
 http://thematicmapping.org/downloads/
+
 https://eros.usgs.gov
 
 ### collection of geographical names
@@ -57,7 +61,6 @@ http://live.farearth.com/
 
 ## License
 
-Copyright © 2017 FIXME
+Copyright © 2017 mungolab.com
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the Eclipse Public License either version 1.0 or (at your option) any later version.

@@ -49,6 +49,7 @@
    (let [params-start (.indexOf url "?")]
      (if (> params-start 0) (.substring url 0 params-start) url))
    (.replace "http://" "")
+   (.replace "https://" "")
    (.replace "/" "_")
    (.replace "." "_")))
 

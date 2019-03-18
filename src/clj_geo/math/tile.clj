@@ -2,21 +2,14 @@
 
 ;;; tile coordinate system ( web mercator )
 ;;; 0,0 is upper left corner
+;;; zoom 0 is lower zoom than zoom 5
+;;; zoom 5 is higher zoom than zoom 0
 
-(def tile
-  {
-   ;; lower left coordinate system
-   :zoom :long
-   :x :long
-   :y :long})
-
-(def tile-data
-  (assoc
+#_(model
    tile
-   ;; initial implementation uses InputStream, this needs to be fixed before switch to CLJC
-   :data :bytes))
+   [[:zoom :long] [:x :long] [:y :long]])
 
-(def tile-bounds
+#_(model tile-bounds
   [
    [:zoom :long]
    [:min-x :long]
@@ -24,69 +17,34 @@
    [:min-y :long]
    [:max-y :long]])
 
-
-;;; v1, before fixing latitude -90.0
-#_(defn zoom->location->tile [zoom]
-  (fn [location]
-    ;; zoom-shifted = 2 ^ zoom
-    (let [zoom-shifted (bit-shift-left 1 zoom)
-          lat-radians (Math/toRadians (:latitude location))
-          xtile (int (Math/floor (*
-                                  (/
-                                   (+ 180 (:longitude location))
-                                   360)
-                                  zoom-shifted)))
-          ytile (int (Math/floor (*
-                                  (/
-                                   (-
-                                    1
-                                    (/
-                                     (Math/log
-                                      (+
-                                       (Math/tan lat-radians)
-                                       (/ 1 (Math/cos lat-radians))))
-                                     Math/PI))
-                                   2)
-                                  zoom-shifted)))]
-      {
-       :zoom zoom
-       :x (cond (< xtile 0) 0
-                (>= xtile zoom-shifted) (- zoom-shifted 1)
-                :else xtile)
-       :y (cond (< ytile 0) 0
-                (>= ytile zoom-shifted) (- zoom-shifted 1)
-                :else ytile)})))
-
-(defn zoom->location->tile [zoom]
-  (fn [location]
-    ;; zoom-shifted = 2 ^ zoom
-    (let [zoom-shifted (bit-shift-left 1 zoom)
-          lat-radians (Math/toRadians (:latitude location))
-          xtile (Math/floor (*
+(defn zoom->location->tile [zoom location]
+  ;; zoom-shifted = 2 ^ zoom
+  (let [zoom-shifted (bit-shift-left 1 zoom)
+        lat-radians (Math/toRadians (:latitude location))
+        xtile (Math/floor (*
+                           (/
+                            (+ 180 (:longitude location))
+                            360)
+                           zoom-shifted))
+        ytile (Math/floor (*
+                           (/
+                            (-
+                             1
                              (/
-                              (+ 180 (:longitude location))
-                              360)
-                             zoom-shifted))
-          ytile (Math/floor (*
-                             (/
-                              (-
-                               1
-                               (/
-                                (Math/log
-                                 (+
-                                  (Math/tan lat-radians)
-                                  (/ 1 (Math/cos lat-radians))))
-                                Math/PI))
-                              2)
-                             zoom-shifted))]
-      {
-       :zoom zoom
-       :x (cond (< xtile 0) 0
-                (>= xtile zoom-shifted) (- zoom-shifted 1)
-                :else (long xtile))
-       :y (cond (< ytile 0) 0
-                (>= ytile zoom-shifted) (- zoom-shifted 1)
-                :else (long ytile))})))
+                              (Math/log
+                               (+
+                                (Math/tan lat-radians)
+                                (/ 1 (Math/cos lat-radians))))
+                              Math/PI))
+                            2)
+                           zoom-shifted))]
+    [zoom
+     (cond (< xtile 0) 0
+              (>= xtile zoom-shifted) (- zoom-shifted 1)
+              :else (long xtile))
+     (cond (< ytile 0) 0
+              (>= ytile zoom-shifted) (- zoom-shifted 1)
+              :else (long ytile))]))
 
 (defn zoom->location->point [zoom]
   ;; zoom-shifted = 2 ^ zoom
@@ -192,7 +150,7 @@
    [nil nil nil nil]
    (map tile->location-bounds tile-seq)))
 
-(defn zoom-in->zoom-out->point
+(defn zoom->zoom->point->tile-offset
   "Convert tile points from upper zoom level to lower one"
   [zoom-in]
   (fn [zoom-out]
@@ -201,3 +159,49 @@
             zoom-diff (- zoom-in zoom-out)
             divider (Math/pow 2 zoom-diff)]
         [(rem (int (/ x-in divider)) 256) (rem (int (/ y-in divider)) 256)]))))
+
+(defn zoom->zoom->point->tile
+  "Works only when zoom-in > zoom-out."
+  [zoom-in zoom-out [x y]]
+  (let [divider (* 256 (Math/pow 2 (- zoom-in zoom-out)))]
+    [
+     zoom-out
+     (int (Math/floor (/ x divider)))
+     (int (Math/floor (/ y divider)))]))
+
+(defn zoom->point->tile
+  [zoom]
+  (fn [point]
+    ;; todo
+    ))
+
+(defn zoom->tile->tile-seq
+  "Calculates tile(s) which represent given tile on different zoom level. If
+  zoom level is lower only single tile will be returned, if it's higher multiple
+  tiles will be returned"
+  [zoom-out [zoom-in x y]]
+  (cond
+    (< zoom-out zoom-in)
+    (let [divider (Math/pow 2 (- zoom-in zoom-out))]
+      [[
+        zoom-out
+        (int (Math/floor (/ x divider)))
+        (int (Math/floor (/ y divider)))]])
+    (> zoom-out zoom-in)
+    (let [multiplicator (int (Math/pow 2 (- zoom-out zoom-in)))]
+      (mapcat
+       (fn [x]
+         (map
+          (fn [y] [zoom-out x y])
+          (range (* y multiplicator) (* (inc y) multiplicator))))
+       (range (* x multiplicator) (* (inc x) multiplicator))))
+    :else [[zoom-in x y]]))
+
+(defn location->tile-seq
+  "Returns tiles from 0 up 18 zoom level for location. Used for debugging"
+  [location]
+  (map
+   (fn [zoom] (zoom->location->tile zoom location))
+   (range 0 19)))
+
+

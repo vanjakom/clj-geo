@@ -1,4 +1,5 @@
-(ns clj-geo.math.tile)
+(ns clj-geo.math.tile
+  (:use clj-common.clojure))
 
 ;;; tile coordinate system ( web mercator )
 ;;; 0,0 is upper left corner
@@ -151,14 +152,21 @@
    (map tile->location-bounds tile-seq)))
 
 (defn zoom->zoom->point->tile-offset
-  "Convert tile points from upper zoom level to lower one"
-  [zoom-in]
-  (fn [zoom-out]
-    (fn [point]
-      (let [[x-in y-in] point
-            zoom-diff (- zoom-in zoom-out)
-            divider (Math/pow 2 zoom-diff)]
-        [(rem (int (/ x-in divider)) 256) (rem (int (/ y-in divider)) 256)]))))
+  "Convert tile points from upper zoom level to lower one.
+  Note: doesn't work when zoom-out  > zoom-in and point does
+  not belong to tile ..."
+  [zoom-in zoom-out [x y]]
+  (let [zoom-diff (- zoom-in zoom-out)
+        divider (Math/pow 2 zoom-diff)]
+    [(rem (int (/ x divider)) 256) (rem (int (/ y divider)) 256)]))
+
+#_(zoom->zoom->point->tile-offset 16 15 [200 200]) ; [100 100]
+#_(zoom->zoom->point->tile-offset 16 16 [200 200]) ; [200 200]
+#_(zoom->zoom->point->tile-offset 16 17 [200 200]) ; [144 144]
+
+#_(zoom->zoom->point->tile-offset 16 15 [100 100]) ; [50 50]
+#_(zoom->zoom->point->tile-offset 16 16 [100 100]) ; [100 100]
+#_(zoom->zoom->point->tile-offset 16 17 [100 100]) ; [200 200]
 
 (defn zoom->zoom->point->tile
   "Works only when zoom-in > zoom-out."
@@ -204,4 +212,46 @@
    (fn [zoom] (zoom->location->tile zoom location))
    (range 0 19)))
 
+;;; depricated, has problems with over zoom, rendering zoom 16 location
+;;; on zoom 17, use
+(defn tile->zoom-->point->bounds?
+  "Tests if point on specified zoom level belongs to given tile.
+  Zoom of tile is lower level than given zoom. Used to test if given set of
+  points belongs to tile"
+  [tile zoom]
+  (let [tiles (zoom->tile->tile-seq zoom tile)
+        divider (Math/pow 2 (- zoom (first tile)))
+        min-x (* 256 (reduce min (get (first tiles) 1) (map second tiles)))
+        max-x (+ min-x (* 256 divider))
+        min-y (* 256 (reduce min (get (first tiles) 2) (map (partial-right get 2) tiles)))
+        max-y (+ min-y (* 256 divider))]
+    (println divider min-x max-x min-y max-y)
+    (fn [[x y]]
+      (and
+       (>= x min-x) (<= x max-x) (>= y min-y) (<= y max-y)))))
+
+#_((tile->zoom-->point->bounds? [17 0 0] 16) [100 100] ) ; true
+#_((tile->zoom-->point->bounds? [17 0 0] 16) [200 200] ) ; false
+((tile->zoom-->point->bounds? [17 1 1] 16) [200 200] ) ; false <- problem ...
+#_((tile->zoom-->point->bounds? [16 0 0] 16) [100 100] ) ; true
+#_((tile->zoom-->point->bounds? [16 0 0] 16) [200 200] ) ; true
+#_((tile->zoom-->point->bounds? [15 0 0] 16) [100 100] ) ; true
+#_((tile->zoom-->point->bounds? [15 0 0] 16) [200 100] ) ; true
+
+#_(zoom->tile->tile-seq 16 [17 0 0]) ; [[16 0 0]] 
+#_(zoom->tile->tile-seq 16 [17 1 1]) ; [[16 0 0]]
+#_(zoom->tile->tile-seq 16 [17 2 2]) ; [[16 1 1]]
+#_(zoom->tile->tile-seq 16 [17 3 3]) ; [[16 1 1]]
+
+(defn tile->zoom-->point->tile-offset
+  "Prepares conversion function for rendering of given tile, by transforming
+  points of given zoom"
+  [[tile-zoom tile-x tile-y] zoom]
+  (let [multiplicator (- zoom tile-zoom)]
+    (fn [[x y]]
+      [
+       (rem (int (/ x )))
+       ]
+    
+     )))
 

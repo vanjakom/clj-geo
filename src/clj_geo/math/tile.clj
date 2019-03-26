@@ -151,7 +151,9 @@
    [nil nil nil nil]
    (map tile->location-bounds tile-seq)))
 
-(defn zoom->zoom->point->tile-offset
+;;; having problem with higher level zoom, replaced with more specifc
+;;; tile->zoom-->point->tile-offset
+#_(defn zoom->zoom->point->tile-offset
   "Convert tile points from upper zoom level to lower one.
   Note: doesn't work when zoom-out  > zoom-in and point does
   not belong to tile ..."
@@ -213,8 +215,8 @@
    (range 0 19)))
 
 ;;; depricated, has problems with over zoom, rendering zoom 16 location
-;;; on zoom 17, use
-(defn tile->zoom-->point->bounds?
+;;; on zoom 17, use tile->zoom-->point->tile-offset
+#_(defn tile->zoom-->point->bounds?
   "Tests if point on specified zoom level belongs to given tile.
   Zoom of tile is lower level than given zoom. Used to test if given set of
   points belongs to tile"
@@ -243,15 +245,28 @@
 #_(zoom->tile->tile-seq 16 [17 2 2]) ; [[16 1 1]]
 #_(zoom->tile->tile-seq 16 [17 3 3]) ; [[16 1 1]]
 
-(defn tile->zoom-->point->tile-offset
+(defn zoom->zoom-->point->point
+  "Transforms point from one zoom to another"
+  [zoom-in zoom-out]
+  (let [multiplicator (Math/pow 2 (- zoom-out zoom-in))]
+    (fn [[x y]]
+      [(* x multiplicator) (* y multiplicator)])))
+
+(defn zoom->tile-->point->tile-offset
   "Prepares conversion function for rendering of given tile, by transforming
   points of given zoom"
-  [[tile-zoom tile-x tile-y] zoom]
-  (let [multiplicator (- zoom tile-zoom)]
-    (fn [[x y]]
-      [
-       (rem (int (/ x )))
-       ]
-    
-     )))
+  [zoom-in [zoom-out x-tile-out y-tile-out]]
+  (let [point-convert-fn (zoom->zoom-->point->point zoom-in zoom-out)]
+    (fn [point-in]
+      (let [[x-out y-out] (point-convert-fn point-in)
+            x-offset-zero (* x-tile-out 256)
+            y-offset-zero (* y-tile-out 256)
+            x-offset-out (- x-out x-offset-zero)
+            y-offset-out (- y-out y-offset-zero)]
+        (if (and
+             (> x-offset-out 0) (< x-offset-out 256)
+             (> y-offset-out 0) (< y-offset-out 256))
+          [x-offset-out y-offset-out]
+          nil)))))
+
 

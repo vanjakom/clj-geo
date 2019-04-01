@@ -234,7 +234,7 @@
 
 #_((tile->zoom-->point->bounds? [17 0 0] 16) [100 100] ) ; true
 #_((tile->zoom-->point->bounds? [17 0 0] 16) [200 200] ) ; false
-((tile->zoom-->point->bounds? [17 1 1] 16) [200 200] ) ; false <- problem ...
+#_((tile->zoom-->point->bounds? [17 1 1] 16) [200 200] ) ; false <- problem ...
 #_((tile->zoom-->point->bounds? [16 0 0] 16) [100 100] ) ; true
 #_((tile->zoom-->point->bounds? [16 0 0] 16) [200 200] ) ; true
 #_((tile->zoom-->point->bounds? [15 0 0] 16) [100 100] ) ; true

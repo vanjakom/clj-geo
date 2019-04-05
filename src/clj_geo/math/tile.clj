@@ -77,11 +77,11 @@
                             :location location}
                            e))))))
 
-(defn tile->location [tile]
+(defn tile->location [[zoom x y]]
   ; zoom-shifted = 2 ^ zoom
-  (let [zoom-shifted (bit-shift-left 1 (:zoom tile))
-        longitude (- (* (/ (:x tile) zoom-shifted) 360) 180.0)
-        latitude-rad (Math/atan (Math/sinh (* Math/PI (- 1 (* 2 (/ (:y tile) zoom-shifted))))))
+  (let [zoom-shifted (bit-shift-left 1 zoom)
+        longitude (- (* (/ x zoom-shifted) 360) 180.0)
+        latitude-rad (Math/atan (Math/sinh (* Math/PI (- 1 (* 2 (/ y zoom-shifted))))))
         latitude (Math/toDegrees latitude-rad)]
     {:longitude longitude :latitude latitude}))
 
@@ -97,7 +97,7 @@
      (:latitude lower-right-location)
      (:latitude upper-left-location)]))
 
-(defn calculate-tile-bounds-from-tile-seq
+#_(defn calculate-tile-bounds-from-tile-seq
   [tile-seq]
   (transduce
    identity
@@ -110,6 +110,21 @@
        (max (or max-x (:x tile)) (:x tile))
        (min (or min-y (:y tile)) (:y tile))
        (max (or max-y (:y tile)) (:y tile))])
+     ([state] state))
+   tile-seq))
+
+(defn tile-seq->tile-bounds
+  [tile-seq]
+  (transduce
+   identity
+   (fn
+     ([] [nil nil nil nil])
+     ([[min-x max-x min-y max-y] [_ x y]]
+      [
+       (min (or min-x x) x)
+       (max (or max-x x) x)
+       (min (or min-y y) y)
+       (max (or max-y y) y)])
      ([state] state))
    tile-seq))
 
@@ -178,12 +193,6 @@
      zoom-out
      (int (Math/floor (/ x divider)))
      (int (Math/floor (/ y divider)))]))
-
-(defn zoom->point->tile
-  [zoom]
-  (fn [point]
-    ;; todo
-    ))
 
 (defn zoom->tile->tile-seq
   "Calculates tile(s) which represent given tile on different zoom level. If
@@ -269,4 +278,13 @@
           [x-offset-out y-offset-out]
           nil)))))
 
-
+(defn zoom->tile-bounds->zoom->point->in?
+  "Tests if point on given zoom level belongs to tile
+  Note: similar fn: zoom->tile-->point->tile-offset"
+  [zoom-tile [min-x max-x min-y max-y] zoom-point point]
+  (let [[x y] ((zoom->zoom-->point->point zoom-point zoom-tile) point)]
+    (and
+     (> x (* 256 min-x))
+     (< x (* 256 max-x))
+     (> y (* 256 min-y))
+     (< y (* 256 max-y)))))

@@ -150,7 +150,7 @@
     (max (or max-latitude (:latitude location)) (:latitude location))])
   ([state] state))
 
-(defn bounding-box [location-seq]
+(defn location-seq->bounding-box [location-seq]
   "Returns [min-longitude max-longitude min-latitude max-latitude]"
   (reduce
     (fn [[min-longitude max-longitude min-latitude max-latitude]
@@ -161,6 +161,9 @@
        (max latitude (or max-latitude latitude))])
     [nil nil nil nil]
     location-seq))
+
+;;; deprecated
+(def bounding-box location-seq->bounding-box)
 
 (test
   "bounding-box test"
@@ -198,7 +201,7 @@
      (- latitude latitude-distance)
      (+ latitude latitude-distance)]))
 
-(defn location-in-bounding-box?
+(defn bounding-box->location->in?
   "Checks if location belongs to bounding box
   Bounding box is defined with [min-longitude max-longitude min-latitude max-latitude]"
   [bounding-box location]
@@ -216,3 +219,5 @@
                           {:bounding-box bounding-box :location location}
                           ex)))))
 
+;;; deprecated
+(def location-in-bounding-box? bounding-box->location->in?)

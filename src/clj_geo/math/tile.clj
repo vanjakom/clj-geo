@@ -6,18 +6,13 @@
 ;;; zoom 0 is lower zoom than zoom 5
 ;;; zoom 5 is higher zoom than zoom 0
 
-#_(model
-   tile
-   [[:zoom :long] [:x :long] [:y :long]])
+;;; tile - [zoom x y]
+;;; point [x y]
+;;; tile-offset [offset-x offset-y]
+;;; tile-bounds [zoom min-x max-x min-y max-y]
 
-#_(model tile-bounds
-  [
-   [:zoom :long]
-   [:min-x :long]
-   [:max-x :long]
-   [:min-y :long]
-   [:max-y :long]])
 
+;;; https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Clojure
 (defn zoom->location->tile [zoom location]
   ;; zoom-shifted = 2 ^ zoom
   (let [zoom-shifted (bit-shift-left 1 zoom)
@@ -47,6 +42,7 @@
               (>= ytile zoom-shifted) (- zoom-shifted 1)
               :else (long ytile))]))
 
+;;; https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
 (defn zoom->location->point [zoom]
   ;; zoom-shifted = 2 ^ zoom
   (fn [location]
@@ -77,6 +73,38 @@
                             :location location}
                            e))))))
 
+;;; https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
+(defn zoom->point->location [zoom [x y]]
+  [
+   (Math/toDegrees
+    (-
+     (/
+      (* x 2 Math/PI)
+      (* 256 (Math/pow 2 zoom)))
+     Math/PI))
+   (Math/toDegrees
+    (*
+     2
+     (-
+      (Math/atan
+       (Math/pow
+        Math/E
+        (-
+         Math/PI
+         (/
+          (* y 2 Math/PI)
+          (* 256 (Math/pow 2 zoom))))))
+      (/ Math/PI 4))))])
+
+;;; https://gist.githubusercontent.com/maptiler/fddb5ce33ba995d5523de9afdf8ef118/raw/d7565390d2480bfed3c439df5826f1d9e4b41761/globalmaptiles.py
+(defn longitude->latitude->point-in-meters [longitude latitude]
+  (let [origin-shift 20037508.342789244]
+    [
+     (* longitude (/ origin-shift 180))
+     (/
+      (Math/log (Math/tan (/ (* (+ 90 latitude) Math/PI) 360.0)))
+      (/ Math/PI 180.0))]))
+
 (defn tile->location [[zoom x y]]
   ; zoom-shifted = 2 ^ zoom
   (let [zoom-shifted (bit-shift-left 1 zoom)
@@ -96,22 +124,6 @@
      (:longitude lower-right-location)
      (:latitude lower-right-location)
      (:latitude upper-left-location)]))
-
-#_(defn calculate-tile-bounds-from-tile-seq
-  [tile-seq]
-  (transduce
-   identity
-   (fn
-     ([] [nil nil nil nil nil])
-     ([[zoom min-x max-x min-y max-y] tile]
-      [
-       (or zoom (:zoom tile))
-       (min (or min-x (:x tile)) (:x tile))
-       (max (or max-x (:x tile)) (:x tile))
-       (min (or min-y (:y tile)) (:y tile))
-       (max (or max-y (:y tile)) (:y tile))])
-     ([state] state))
-   tile-seq))
 
 (defn tile-seq->tile-bounds
   [tile-seq]
@@ -166,25 +178,6 @@
    [nil nil nil nil]
    (map tile->location-bounds tile-seq)))
 
-;;; having problem with higher level zoom, replaced with more specifc
-;;; tile->zoom-->point->tile-offset
-#_(defn zoom->zoom->point->tile-offset
-  "Convert tile points from upper zoom level to lower one.
-  Note: doesn't work when zoom-out  > zoom-in and point does
-  not belong to tile ..."
-  [zoom-in zoom-out [x y]]
-  (let [zoom-diff (- zoom-in zoom-out)
-        divider (Math/pow 2 zoom-diff)]
-    [(rem (int (/ x divider)) 256) (rem (int (/ y divider)) 256)]))
-
-#_(zoom->zoom->point->tile-offset 16 15 [200 200]) ; [100 100]
-#_(zoom->zoom->point->tile-offset 16 16 [200 200]) ; [200 200]
-#_(zoom->zoom->point->tile-offset 16 17 [200 200]) ; [144 144]
-
-#_(zoom->zoom->point->tile-offset 16 15 [100 100]) ; [50 50]
-#_(zoom->zoom->point->tile-offset 16 16 [100 100]) ; [100 100]
-#_(zoom->zoom->point->tile-offset 16 17 [100 100]) ; [200 200]
-
 (defn zoom->zoom->point->tile
   "Works only when zoom-in > zoom-out."
   [zoom-in zoom-out [x y]]
@@ -222,37 +215,6 @@
   (map
    (fn [zoom] (zoom->location->tile zoom location))
    (range 0 19)))
-
-;;; depricated, has problems with over zoom, rendering zoom 16 location
-;;; on zoom 17, use tile->zoom-->point->tile-offset
-#_(defn tile->zoom-->point->bounds?
-  "Tests if point on specified zoom level belongs to given tile.
-  Zoom of tile is lower level than given zoom. Used to test if given set of
-  points belongs to tile"
-  [tile zoom]
-  (let [tiles (zoom->tile->tile-seq zoom tile)
-        divider (Math/pow 2 (- zoom (first tile)))
-        min-x (* 256 (reduce min (get (first tiles) 1) (map second tiles)))
-        max-x (+ min-x (* 256 divider))
-        min-y (* 256 (reduce min (get (first tiles) 2) (map (partial-right get 2) tiles)))
-        max-y (+ min-y (* 256 divider))]
-    (println divider min-x max-x min-y max-y)
-    (fn [[x y]]
-      (and
-       (>= x min-x) (<= x max-x) (>= y min-y) (<= y max-y)))))
-
-#_((tile->zoom-->point->bounds? [17 0 0] 16) [100 100] ) ; true
-#_((tile->zoom-->point->bounds? [17 0 0] 16) [200 200] ) ; false
-#_((tile->zoom-->point->bounds? [17 1 1] 16) [200 200] ) ; false <- problem ...
-#_((tile->zoom-->point->bounds? [16 0 0] 16) [100 100] ) ; true
-#_((tile->zoom-->point->bounds? [16 0 0] 16) [200 200] ) ; true
-#_((tile->zoom-->point->bounds? [15 0 0] 16) [100 100] ) ; true
-#_((tile->zoom-->point->bounds? [15 0 0] 16) [200 100] ) ; true
-
-#_(zoom->tile->tile-seq 16 [17 0 0]) ; [[16 0 0]] 
-#_(zoom->tile->tile-seq 16 [17 1 1]) ; [[16 0 0]]
-#_(zoom->tile->tile-seq 16 [17 2 2]) ; [[16 1 1]]
-#_(zoom->tile->tile-seq 16 [17 3 3]) ; [[16 1 1]]
 
 (defn zoom->zoom-->point->point
   "Transforms point from one zoom to another"

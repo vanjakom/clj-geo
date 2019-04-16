@@ -69,7 +69,7 @@
       tile)
     (if-let [tile (http/get-as-stream url)]
       (let [input-stream-cache-fn (io/cache-input-stream tile)]
-        (logging/report {:fn retrieve-tile :stage :download-ok})
+        (logging/report {:fn retrieve-tile :stage :download-ok :url url})
         (*tile-cache* url (input-stream-cache-fn))
         (input-stream-cache-fn))
       (do

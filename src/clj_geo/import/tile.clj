@@ -29,6 +29,21 @@
     (str "http://tile.thunderforest.com/outdoors/" zoom "/" x "/" y ".png?apikey=" apikey)
     (str "http://tile.thunderforest.com/outdoors/" zoom "/" x "/" y ".png")))
 
+(defn create-osm-url [{zoom :zoom x :x y :y}]
+  (str
+   "https://tile.openstreetmap.org/" zoom "/" x "/" y ".png"))
+
+(defn create-mapbox-raster-url [username style access-token]
+  (fn [{zoom :zoom x :x y :y}]
+    (str
+     "https://api.mapbox.com/styles/v1/"
+     username
+     "/"
+     style
+     "/tiles/256/{z}/{x}/{y}"
+     "?access_token="
+     access-token)))
+
 
 ;;; visit https://wiki.openstreetmap.org/wiki/Tile_servers
 (def tiles

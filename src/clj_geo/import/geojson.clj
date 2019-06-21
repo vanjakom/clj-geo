@@ -5,9 +5,14 @@
 (defn location->feature [location]
   {
    :type "Feature"
-   :properties {
-                :tags (:tags location)}
-   :geometry {
+   :properties
+   {:tags (:tags location)}
+   #_(reduce
+      (fn [tags tag]
+        (assoc tags tag "true"))
+      {}
+      (:tags location))
+   :geometry  {
               :type "Point"
               :coordinates [(:longitude location) (:latitude location)]}})
 

@@ -3,9 +3,6 @@
    [clj-common.as :as as]
    [clj-common.test :as test]))
 
-(defn pattern-match [pattern location-string]
-  (new ()))
-
 (defn string->location
   [location-string]
   (first

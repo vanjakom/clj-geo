@@ -6,7 +6,7 @@
   {
    :type "Feature"
    :properties
-   {:tags (:tags location)}
+   (:tags location)
    #_(reduce
       (fn [tags tag]
         (assoc tags tag "true"))

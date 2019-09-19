@@ -5,7 +5,7 @@
 
 (def ^:dynamic *dataset-path*
   (path/string->path
-   (jvm/environment-variable "CLJ_GEO_DATA")))
+   (or (jvm/environment-variable "CLJ_GEO_DATA") "/tmp/dataset")))
 
 (def ^:dynamic *tile-cache-path*
   (path/child

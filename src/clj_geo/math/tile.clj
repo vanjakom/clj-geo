@@ -113,12 +113,9 @@
         latitude (Math/toDegrees latitude-rad)]
     {:longitude longitude :latitude latitude}))
 
-(defn tile->location-bounds [tile]
+(defn tile->location-bounds [[zoom x y :as tile]]
   (let [upper-left-location (tile->location tile)
-        lower-right-location (tile->location (assoc
-                                              tile
-                                              :x (inc (:x tile))
-                                              :y (inc (:y tile))))]
+        lower-right-location (tile->location [zoom (inc x) (inc y)])]
     [
      (:longitude upper-left-location)
      (:longitude lower-right-location)

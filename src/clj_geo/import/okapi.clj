@@ -1,12 +1,15 @@
-(ns clj-geo.import.okapi)
+(ns clj-geo.import.okapi
+  (:require
+   [clojure.core.reducers :as r]
+   [clj-common.path :as path]
+   [clj-common.localfs :as fs]
+   [clj-common.json :as json]
+   [clj-common.jvm :as jvm]
+   [clj-common.logging :as logging]
+   [clj-common.exception :as exception]))
 
-(require '[clojure.core.reducers :as r])
-
-(require '[clj-common.path :as path])
-(require '[clj-common.localfs :as fs])
-(require '[clj-common.json :as json])
-(require '[clj-common.logging :as logging])
-(require '[clj-common.exception :as exception])
+(def ^:dynamic *opencaching-de*
+  (jvm/environment-variable "OPENCACHING_DE_KEY"))
 
 (defn full-dump-metadata [path]
   (with-open [is (fs/input-stream (path/child path "index.json"))]

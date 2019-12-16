@@ -3,7 +3,6 @@
 (require '[clj-common.path :as path])
 
 (import org.geotools.data.FileDataStoreFinder)
-(import com.vividsolutions.jts.geom.Polygon)
 
 (defn load-file-data-store [path]
   (let [datastore-finder (FileDataStoreFinder/getDataStore
@@ -16,7 +15,7 @@
     (fn [geometry-index]
       (let [geometry (.getGeometryN value geometry-index)]
         (with-meta
-          (if (instance? Polygon geometry)
+          (if (instance? org.locationtech.jts.geom.Polygon geometry)
             (map
               (fn [coordinate]
                 {:longitude (.x coordinate) :latitude (.y coordinate)})
@@ -39,7 +38,7 @@
       Double value
       Boolean value
       String value
-      com.vividsolutions.jts.geom.Point {:x (.getX value) :y (.getY value)}
+      org.locationtech.jts.geom.Polygon {:x (.getX value) :y (.getY value)}
       (str (.getName (.getClass value)) " - " (.toString value)))))
 
 (comment
@@ -60,18 +59,3 @@
         (.getProperties feature)))
     {
       :feature-class (.getClass feature)}))
-
-; depricated, not used any more
-(defn append-area [feature-map]
-  (assoc
-    feature-map
-    :area
-    (.getArea (:the_geom feature-map))))
-
-; deprecated, feature->map will fix this ...
-(defn replace-geom [feature-map]
-  (assoc
-    feature-map
-    :the_geom
-    (parse-geom
-      (:the_geom feature-map))))

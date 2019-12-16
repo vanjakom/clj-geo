@@ -14,9 +14,5 @@
 
                  [com.mungolab/clj-scraper "0.1.0-SNAPSHOT"]
 
-                 [org.geotools/gt-main "21.1"]
-                 [org.geotools/gt-shapefile "21.1"]
-                 ; https://stackoverflow.com/questions/48268257/leiningen-raises-tried-to-use-insecure-http-repository-without-tls-but-for-wh
-                 ; retrieves dependency from http
-                 ; it.geosolutions.imageio-ext.imageio-ext-tiff
-                 #_[org.geotools/gt-swing "21.1"]])
+                 [org.geotools/gt-main "21.3"]
+                 [org.geotools/gt-shapefile "21.3"]])

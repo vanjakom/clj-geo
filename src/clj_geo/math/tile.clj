@@ -43,7 +43,7 @@
               :else (long ytile))]))
 
 ;;; https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
-(defn zoom->location->point [zoom]
+(defn zoom-->location->point [zoom]
   ;; zoom-shifted = 2 ^ zoom
   (fn [location]
     (try
@@ -72,6 +72,7 @@
                             :zoom zoom
                             :location location}
                            e))))))
+(def zoom->location->point zoom-->location->point)
 
 ;;; https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
 (defn zoom->point->location [zoom [x y]]

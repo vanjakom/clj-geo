@@ -147,16 +147,16 @@
     (nth location-bounds 2)
     (nth location-bounds 3)))
   ([zoom min-longitude max-longitude min-latitude max-latitude]
-   (let [min-tile ((zoom->location->tile zoom) {:longitude min-longitude :latitude min-latitude})
-        max-tile ((zoom->location->tile zoom) {:longitude max-longitude :latitude max-latitude})]
+   (let [[zoom min-tile-x min-tile-y] (zoom->location->tile zoom {:longitude min-longitude :latitude min-latitude}) 
+         [zoom max-tile-x max-tile-y] (zoom->location->tile zoom {:longitude max-longitude :latitude max-latitude}) ]
     (mapcat
       (fn [x]
         (map
          (fn [y]
-           {:zoom zoom :x x :y y})
+           [zoom x y])
           ; y is going from top left cornert
-          (range (:y max-tile) (inc (:y min-tile)))))
-      (range (:x min-tile) (inc (:x max-tile)))))))
+          (range max-tile-y (inc min-tile-y ))))
+      (range min-tile-x (inc max-tile-x))))))
 
 (defn calculate-tile-bounds-from-location-bounds
   [zoom min-longitude max-longitude min-latitude max-latitude]
@@ -248,3 +248,26 @@
      (< x (* 256 max-x))
      (> y (* 256 min-y))
      (< y (* 256 max-y)))))
+
+(defn zoom->zoom->tile-seq->tile-seq
+  "For given min and max zoom level and given tile seq calculates
+  tile seq which represents original tile seq across zoom range"
+  [min-zoom max-zoom tile-seq]
+  (second
+   (reduce
+    (fn [[tile-set tile-seq] tile]
+      (if (not (contains? tile-set tile))
+        [(conj tile-set tile) (conj tile-seq tile) ]
+        [tile-set tile-seq]))
+    [#{} '()]
+    (reduce
+     (fn [expanded-seq tile]
+       (reduce
+        (fn [expanded-seq zoom]
+          (concat
+           expanded-seq
+           (zoom->tile->tile-seq zoom tile)))
+        expanded-seq
+        (range min-zoom (inc max-zoom))))
+     '()
+     tile-seq))))

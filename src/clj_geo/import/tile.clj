@@ -1,5 +1,7 @@
 (ns clj-geo.import.tile
   (:require
+   [clj-common.2d :as draw]
+   [clj-common.localfs :as fs]
    [clj-common.logging :as logging]
    [clj-common.io :as io]
    [clj-common.http :as http]
@@ -104,3 +106,24 @@
         :data
         (retrieve-tile ((get tiles tile-name) %)))
       tile-seq))))
+
+(defn create-world-image-from-tile
+  "Tile url to retrieve tiles from, use {z}, {x}, {y} for template. Zoom
+  level to retreive tiles on."
+  [tile-url zoom]
+  (let [num-tiles (Math/pow 2 zoom)
+        context (draw/create-image-context (* 256 num-tiles) (* 256 num-tiles))]
+    (doseq [x (range 0 num-tiles)]
+      (doseq [y (range 0 num-tiles)]
+        (with-open [tile-is
+                    (http/get-as-stream (->
+                                         tile-url
+                                         (.replace "{z}" (str zoom))
+                                         (.replace "{x}" (str x))
+                                         (.replace "{y}" (str y))))]
+          (let [tile (draw/input-stream->image tile-is)]
+            (draw/draw-image
+             context
+             [(+ (* x 256) 128) (+ (* y 256) 128)]
+             tile)))))
+    context))

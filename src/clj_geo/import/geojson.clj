@@ -1,5 +1,7 @@
 (ns clj-geo.import.geojson)
 
+;;; NOTE: obsolite, for trek-mate releated stuff use trek-mate.intergration.geojson
+
 ;;; all transformation functions work with deserialized JSON reporesentation
 
 (defn location->feature [location]

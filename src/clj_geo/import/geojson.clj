@@ -7,13 +7,7 @@
 (defn location->feature [location]
   {
    :type "Feature"
-   :properties
-   (:tags location)
-   #_(reduce
-      (fn [tags tag]
-        (assoc tags tag "true"))
-      {}
-      (:tags location))
+   :properties (dissoc location :longitude :latitude)
    :geometry  {
               :type "Point"
               :coordinates [(:longitude location) (:latitude location)]}})

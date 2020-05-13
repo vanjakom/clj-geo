@@ -1,19 +1,68 @@
 (ns clj-geo.import.gpx
-  (:require [clojure.xml :as xml])
-  (:require [clj-common.path :as path])
-  (:require [clj-common.localfs :as fs])
-  (:require [clj-common.view :as view]))
+  (:require
+   [clojure.xml :as xml]
+   [clj-common.as :as as]
+   [clj-common.localfs :as fs]
+   [clj-common.path :as path]
+   [clj-common.view :as view]))
 
 (let [formatter (new java.text.SimpleDateFormat "yyyy-MM-dd'T'HH:mm:ss'Z'")]
   (.setTimeZone formatter (java.util.TimeZone/getTimeZone "UTC"))
   (defn timestamp->utc-date-time [timestamp]
-    (.format formatter (* timestamp 1000))))
+    (.format formatter (* timestamp 1000)))
+  (defn utc-date-time->timestamp [date]
+    (.getTime (.parse formatter date))))
 
-(defn read [path]
+#_(defn read [path]
   (xml/parse (fs/input-stream path)))
 
-(defn read-stream [input-stream]
+#_(defn read-stream [input-stream]
   (xml/parse input-stream))
+
+(defn read-track-gpx
+  "Intented for general reading of gpx tracks written by Garmin devices.
+  Returns following structure
+  {
+     :wpt-seq [{:lognitude :double :latitude :double :name :string}]
+     :track-seq [[{:longitude :double :latitude :double :timestamp :seconds}]]}
+  Note: document irregularities"
+  [input-stream]
+  (let [data (xml/parse input-stream)
+        wpt (map
+             (fn [data]
+               (let [longitude (get-in data [:attrs :lon])
+                     latitude (get-in data [:attrs :lat])
+                     metadata (view/seq->map :tag (:content data))]
+                 {
+                  :longitude (as/as-double longitude)
+                  :latitude (as/as-double latitude)
+                  :name (get-in metadata [:name :content 0])}))
+             (filter
+              #(= (:tag %) :wpt)
+              (:content data)))
+        trk (map
+             (fn [data]
+               (map
+                (fn [data]
+                  (let [longitude (get-in data [:attrs :lon])
+                        latitude (get-in data [:attrs :lat])
+                        metadata (view/seq->map :tag (:content data))]
+                    {
+                     :longitude (as/as-double longitude)
+                     :latitude (as/as-double latitude)
+                     :timestamp (when-let [date (get-in metadata [:time :content 0])]
+                                  (utc-date-time->timestamp date))}))
+                (:content data)))
+             (filter
+              #(= (:tag %) :trkseg)
+              (:content
+               (first
+                (filter
+                 #(= (:tag %) :trk)
+                 (:content data))))))]
+    {
+     :wpt-seq wpt
+     :track-seq trk}))
 
 (defn write-track-gpx
   "Writes GPX to OutputStream. Tags will be written inside metadata tag.
@@ -27,6 +76,12 @@
      (xml/emit
       {
        :tag :gpx
+       :attrs {
+               "version" "1.1"
+               "creator" "trek-mate"
+               "xmlns:xsi" "http://www.w3.org/2001/XMLSchema-instance"
+               "xmlns" "http://www.topografix.com/GPX/1/1"
+               "xsi:schemaLocation" "http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd"}
        :content
        [
         {:tag :metadata
@@ -42,8 +97,8 @@
            :content (map
                      (fn [location]
                        {:tag :trkpt
-                        :attrs {:longitude (str (:longitude location))
-                                :latitude (str (:latitude location))}
+                        :attrs {:lon (str (:longitude location))
+                                :lat (str (:latitude location))}
                         :content (filter
                                   some?
                                   [ ;; todo format timestamp

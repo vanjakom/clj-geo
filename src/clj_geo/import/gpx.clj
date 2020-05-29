@@ -55,11 +55,11 @@
                 (:content data)))
              (filter
               #(= (:tag %) :trkseg)
-              (:content
-               (first
-                (filter
+              (mapcat
+               :content
+               (filter
                  #(= (:tag %) :trk)
-                 (:content data))))))]
+                 (:content data)))))]
     {
      :wpt-seq wpt
      :track-seq trk}))

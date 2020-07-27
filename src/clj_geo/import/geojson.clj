@@ -35,3 +35,45 @@
   {
    :type "FeatureCollection"
    :features (map way->feature way-seq)})
+
+;; new approach
+
+(defn location->point [location]
+  {
+   :type "Feature"
+   :properties (dissoc location :longitude :latitude)
+   :geometry  {
+              :type "Point"
+              :coordinates [(:longitude location) (:latitude location)]}})
+
+(defn location-seq->line-string
+  [location-seq]
+  {
+   :type "Feature"
+   :properties {}
+   :geometry {
+              :type "LineString"
+              :coordinates (map
+                            (fn [location]
+                              [(:longitude location) (:latitude location)])
+                            location-seq)}})
+
+(defn location-seq-seq->multi-line-string
+  [location-seq-seq]
+  {
+   :type "Feature"
+   :properties {}
+   :geometry {
+              :type "MultiLineString"
+              :coordinates (map
+                            (fn [location-seq]
+                              (map
+                               (fn [location]
+                                 [(:longitude location) (:latitude location)])
+                               location-seq))
+                            location-seq-seq)}})
+
+(defn geojson [feature-seq]
+  {
+   :type "FeatureCollection"
+   :features feature-seq})

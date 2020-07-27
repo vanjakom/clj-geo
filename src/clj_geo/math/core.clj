@@ -221,3 +221,6 @@
 
 ;;; deprecated
 (def location-in-bounding-box? bounding-box->location->in?)
+
+(defn degree-minute-second->degree [degree minute second]
+  (+ degree (/ minute 60) (/ second 3600)))

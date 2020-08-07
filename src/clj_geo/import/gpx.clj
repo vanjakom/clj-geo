@@ -6,7 +6,7 @@
    [clj-common.path :as path]
    [clj-common.view :as view]))
 
-(let [formatter (new java.text.SimpleDateFormat "yyyy-MM-dd'T'HH:mm:ss'Z'")]
+(let [formatter (new java.text.SimpleDateFormat "yyyy-MM-dd'T'HH:mm:ssX")]
   (.setTimeZone formatter (java.util.TimeZone/getTimeZone "UTC"))
   (defn timestamp->utc-date-time [timestamp]
     (.format formatter (* timestamp 1000)))

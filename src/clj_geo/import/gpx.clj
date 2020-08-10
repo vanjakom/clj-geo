@@ -102,8 +102,8 @@
                         :content (filter
                                   some?
                                   [ ;; todo format timestamp
-                                   {:tag :time :content [(timestamp->utc-date-time
-                                                          (:timestamp location))]}
+                                   (when-let [timestamp (:timestamp location)]
+                                     {:tag :time :content [(timestamp->utc-date-time timestamp)]})
                                    (when-let [elevation (:elevation location)]
                                      {:tag :ele :content [elevation]})
                                    (when-let [accuracy (:location-accuracy location)]

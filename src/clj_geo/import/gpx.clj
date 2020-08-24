@@ -118,8 +118,3 @@
   output-stream
   #{"test" "ride"}
   [{:longitude 10 :latitude 15 :timestamp 1} {:longitude 20 :latitude 30 :timestamp 2}]))
-
-
-
-
-

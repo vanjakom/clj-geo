@@ -271,3 +271,7 @@
         (range min-zoom (inc max-zoom))))
      '()
      tile-seq))))
+
+(defn location-in-tile? [[zoom x y] location]
+  (let [[zoom x-loc y-loc] (zoom->location->tile zoom location)]
+    (and (= x x-loc) (= y y-loc))))

@@ -5,7 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :repositories [
                  ["java.net repo" "https://download.java.net/maven/2"]
-                 ["geotools repo" "https://download.osgeo.org/webdav/geotools"]]
+                 ["osgeo repo" "https://repo.osgeo.org/repository/release/"]]
   :dependencies [
                  [com.mungolab/clj-common "0.3.0-SNAPSHOT"]
                  [org.clojure/data.json "0.2.6"]
@@ -14,5 +14,5 @@
 
                  [com.mungolab/clj-scraper "0.1.0-SNAPSHOT"]
 
-                 [org.geotools/gt-main "21.3"]
-                 [org.geotools/gt-shapefile "21.3"]])
+                 [org.geotools/gt-main "25.2"]
+                 [org.geotools/gt-shapefile "25.2"]])

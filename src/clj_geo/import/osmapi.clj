@@ -1414,6 +1414,79 @@
       #(extract-way dataset %)))))
 
 
+(defn way-center [dataset id]
+  (let [way (get-in dataset [:ways id])
+        min-longitude (apply
+                       min
+                       (map
+                        #(as/as-double (:longitude (get-in dataset [:nodes %])))
+                        (:nodes way)))
+        max-longitude (apply
+                       max
+                       (map
+                        #(as/as-double (:longitude (get-in dataset [:nodes %])))
+                        (:nodes way)))
+        min-latitude (apply
+                       min
+                       (map
+                        #(as/as-double (:latitude (get-in dataset [:nodes %])))
+                        (:nodes way)))
+        max-latitude (apply
+                       max
+                       (map
+                        #(as/as-double (:latitude (get-in dataset [:nodes %])))
+                        (:nodes way)))]
+    {
+     :longitude (+ min-longitude (/ (- max-longitude min-longitude) 2))
+     :latitude (+ min-latitude (/ (- max-latitude min-latitude) 2))}))
+
+#_(way-center valjevske-dataset 641859168)
+
+(defn relation-center [dataset id]
+  (let [relation (get-in dataset [:relations id])
+        nodes (mapcat
+               (fn [member]
+                 (let [way (get-in dataset [:ways (:id member)])]
+                   (map
+                    #(get-in dataset [:nodes %])
+                    (:nodes way))))
+               (filter #(= (:type %) :way) (:members relation)))
+        min-longitude (apply min (map #(as/as-double (:longitude %)) nodes))
+        max-longitude (apply max (map  #(as/as-double (:longitude %)) nodes))
+        min-latitude (apply min (map  #(as/as-double (:latitude %)) nodes))
+        max-latitude (apply max (map  #(as/as-double (:latitude %)) nodes))]
+    {
+     :longitude (+ min-longitude (/ (- max-longitude min-longitude) 2))
+     :latitude (+ min-latitude (/ (- max-latitude min-latitude) 2))}))
+
+#_(relation-center valjevske-dataset 11835344)
+
+
+(defn element->location [dataset element]
+  (let [type (.substring element 0 1)
+        id (as/as-long (.substring element 1))]
+    (cond
+      (= type "n") (let [location (get-in dataset [:nodes id])]
+                     {
+                      :longitude (:longitude location)
+                      :latitude (:latitude location)
+                      :tags (:tags location)})
+      (= type "w") (let [way (get-in dataset [:ways id])
+                         center (way-center dataset id)]
+                     {
+                      :longitude (:longitude center)
+                      :latitude (:latitude center)
+                      :tags (:tags way)})
+      ;; todo
+      (= type "r") (let [relation (get-in dataset [:relations id])
+                         center (relation-center dataset id)]
+                     {
+                      :longitude (:longitude center)
+                      :latitude (:latitude center)
+                      :tags (:tags relation)})
+      :else nil)))
+
+
 ;; util functions to work with OsmChange osmc
 (defn create-changeset [changeset create-seq modify-seq delete-seq]
   (let [convert-fn (fn [element]

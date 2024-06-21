@@ -6,12 +6,18 @@
    [clj-common.json :as json]
    [clj-common.localfs :as fs]))
 
-(defn geojson [feature-seq]
+(defn feature-collection [feature-seq]
   {
    :type "FeatureCollection"
    :features feature-seq})
 
-(def ^:dynamic *style-stroke-color* "#0000FF") ;; blue
+(def geojson feature-collection)
+
+(def color-blue "#0000FF")
+(def color-red "#FF0000")
+(def color-green "#00FF00")
+
+(def ^:dynamic *style-stroke-color* color-blue)
 (def ^:dynamic *style-stroke-width* 2)
 
 (defn point [longitude latitude properties]

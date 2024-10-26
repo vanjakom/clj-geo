@@ -10,12 +10,11 @@
                  ["topobyte.de" "https://mvn.topobyte.de/"]]
   :dependencies [
                  [com.mungolab/clj-common "0.3.0-SNAPSHOT"]
+                 [com.mungolab/clj-scraper "0.1.0-SNAPSHOT"]
+                 
                  [org.clojure/data.json "0.2.6"]
                  [org.clojure/data.xml "0.0.8"]
                  [clj-http "2.2.0"]
-
-                 [com.mungolab/clj-scraper "0.1.0-SNAPSHOT"]
-
                  [org.geotools/gt-main "25.2"]
                  [org.geotools/gt-shapefile "25.2"]
                  [de.topobyte/osm4j-pbf "1.2.0"]])

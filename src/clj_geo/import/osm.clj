@@ -466,3 +466,16 @@
             (do
               (async/close! way-out)
               (context/set-state context "completion"))))))))
+
+(defn wikipedia-url [wikipedia-tag]
+  (let [[lang article] (clojure.string/split wikipedia-tag #":")]
+    (str "https://" lang ".wikipedia.org/wiki/"
+         (clojure.string/replace article #" " "_"))))
+
+#_(wikipedia-url "it:Palmanova") ;; "https://it.wikipedia.org/wiki/Palmanova"
+
+
+(defn wikidata-url [wikidata-tag]
+  (str "https://www.wikidata.org/wiki/" wikidata-tag))
+
+#_(wikidata-url "Q53302") ;; "https://www.wikidata.org/wiki/Q53302"

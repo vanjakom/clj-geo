@@ -3,6 +3,7 @@
   (:use
    clj-common.clojure)
   (:require
+   [clj-http.client :as clj-http]
    [clojure.data.xml :as xml]
    [clj-common.as :as as]
    [clj-common.context :as context]
@@ -15,12 +16,25 @@
    [clj-common.path :as path]
    [clj-common.edn :as edn]
    [clj-common.pipeline :as pipeline]
-   [clj-common.time :as time]))
+   [clj-common.time :as time]
+
+   [clj-geo.osm.dataset :as dataset]))
 
 
+;; basic auth is deprecated
+;; https://blog.openstreetmap.org/2024/04/17/oauth-1-0a-and-http-basic-auth-shutdown-on-openstreetmap-org/
 (def ^:dynamic *server* "https://api.openstreetmap.org")
 (def ^:dynamic *user* (jvm/environment-variable "OSM_USER"))
 (def ^:dynamic *password* (jvm/environment-variable "OSM_PASSWORD"))
+
+;; todo migrate to oauth, and direct clj-http, see changesets for info
+
+(def client-id "__aGylfKQ3iF8fQvnVxQ_yzsRQ3nlJkIso1C21rjRb4")
+(def client-secret "SWBqzuBgm1MiSsUDpLJk5ObMn-mNb24qK6uvnNE5qLc")
+(def client-redirect-url "urn:ietf:wg:oauth:2.0:oob")
+(def client-scope "read_prefs write_api")
+
+(def client-token (atom nil))
 
 (def changelog-path ["tmp" "osmapi-changelog"])
 
@@ -261,6 +275,39 @@
   ([comment changeset]
    (swap! active-changeset-map assoc comment changeset)))
 
+(defn oauth2-authorize
+  "Performs Oauth2 authorize to retrieve authorization code. To be called
+  from repl to obtain url which will be copied to browser"
+  []
+  (str
+   "https://www.openstreetmap.org/oauth2/authorize?response_type=code&client_id="
+   client-id "&redirect_uri=" client-redirect-url "&scope=" client-scope))
+
+#_(oauth2-authorize)
+;; "https://www.openstreetmap.org/oauth2/authorize?response_type=code&client_id=__aGylfKQ3iF8fQvnVxQ_yzsRQ3nlJkIso1C21rjRb4&redirect_uri=urn:ietf:wg:oauth:2.0:oob&scope=read_prefs write_api"
+
+(defn oauth2-token
+  "Performs Oauth2 /token to retrieve token from authorization code. To be called
+  from repl by passing retrieved autorization code. Retrieved token will be set
+  to atom other functions are using during calls"
+  [authorization-code]
+  (let [token-url "https://www.openstreetmap.org/oauth2/token"
+        response (clj-http/post token-url
+                              {:form-params {:client_id client-id
+                                             :client_secret client-secret
+                                             :redirect_uri client-redirect-url
+                                             :code authorization-code
+                                             :grant_type "authorization_code"}
+                               :headers {"Content-Type" "application/x-www-form-urlencoded"}})]
+    (when (= 200 (:status response))
+      (let [access-token (:access_token (json/read-keyworded (:body response)))]
+        (swap! client-token (constantly access-token))
+        access-token))))
+
+;; it's ok to past latest token because it's short lived
+;; call to populate token with valid token
+#_(oauth2-token "7949o-OeqaNpiqnwVRfC7ISHfZmrDYuL7W9P9z8p_wE")
+
 (defn permissions
   "Performs /api/0.6/permissions"
   []
@@ -314,6 +361,22 @@
         (xml/element
          :osm
          {})))))))
+
+(defn changesets
+  "Performs /api/0.6/changesets"
+  [display-name min-timestamp]
+  (let [url (str *server* "/api/0.6/changesets.json")
+        iso-timestamp (unix-to-iso8601 unix-timestamp)
+        params {:display_name display-name
+                :time (str iso-timestamp ",")}  ;; Keep trailing comma for optional max timestamp
+        response (client/get url
+                             {:headers {"Authorization" (str "Bearer " access-token)}
+                              :query-params params
+                              :as :json})]  ;; Automatically parse JSON response
+    (if (= 200 (:status response))
+      (:body response)  ;; Returns parsed JSON as Clojure map
+      (throw (Exception. (str "Failed to fetch changesets: " (:body response))))))
+  )
 
 (defn changeset-download
   "Performs /api/0.6/changeset/#id/download"
@@ -461,22 +524,7 @@
    [:nodes (:id node)]
    #(conj (or % []) node)))
 
-
-(defn dataset-at-t [histset timestamp]
-  (let [extract-fn (fn [element-map versions]
-                     (if-let [element (reduce
-                                       (fn [final version]
-                                         (if (> (:timestamp version) timestamp )
-                                           (reduced final)
-                                           version))
-                                       nil
-                                       versions)]
-                       (assoc element-map (:id element) element)
-                       element-map))]
-    {
-     :nodes (reduce extract-fn {} (:nodes histset))
-     :ways (reduce extract-fn {} (:ways histset))
-     :relations (reduce extract-fn {} (:relations histset))}))
+(def dataset-at-t dataset/dataset-at-t)
 
 #_(merge-histsets
  {

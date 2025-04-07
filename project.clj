@@ -8,6 +8,7 @@
                  ["osgeo repo" "https://repo.osgeo.org/repository/release/"]
                  ["slimjars" "https://mvn.slimjars.com"]
                  ["topobyte.de" "https://mvn.topobyte.de/"]]
+  :source-paths ["src/clj" "src/cljc"]
   :dependencies [
                  [com.mungolab/clj-common "0.3.0-SNAPSHOT"]
                  [com.mungolab/clj-scraper "0.1.0-SNAPSHOT"]

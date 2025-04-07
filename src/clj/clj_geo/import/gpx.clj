@@ -29,7 +29,9 @@
   Returns following structure
   {
      :wpt-seq [{:lognitude :double :latitude :double :name :string}]
-     :track-seq [[{:longitude :double :latitude :double :timestamp :seconds}]]}
+     :track-seq [[{:longitude :double :latitude :double :timestamp :seconds}]]
+     :route-seq [[{:longitude :double :latitude :double :timestamp :seconds}]]}
+
   Note: document irregularities"
   [input-stream]
   (let [data (xml/parse input-stream)

@@ -16,6 +16,9 @@
 (def color-blue "#0000FF")
 (def color-red "#FF0000")
 (def color-green "#00FF00")
+(def color-orange "#FFA500")
+(def color-pink "#FFC0CB")
+(def color-purple "#800080")
 
 (def ^:dynamic *style-stroke-color* color-blue)
 (def ^:dynamic *style-stroke-width* 2)

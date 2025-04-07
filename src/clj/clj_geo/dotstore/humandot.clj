@@ -22,6 +22,10 @@
 ;; tags should start with #
 ;; reference to osm as osm website link ( use https when possible )
 ;; https://www.openstreetmap.org/relation/11097832
+;; --- line in tags should be used to separate extracted from added tags
+;; === line in tags should be used to separate public tags from private one
+;; public vs private is more meant for visiblity ( what to be visible on public
+;; and what on private map )
 ;; 
 ;; location extraction ( useful for references originally coming from osm ) should
 ;; happen only once ( replacing @ with longitude, latitude pair ) using either
@@ -75,7 +79,12 @@
                (if (and
                     (not (contains? tags tag))
                     ;; special tag to divide extracted tags from added ones
-                    (not (= tag "---")))
+                    ;; 20250226 leaving it in tags to support parsing of it
+                    ;; and private tags section
+                    ;; added public tags section start
+                    #_(not (= tag "---"))
+                    ;; added private tags section start
+                    #_(not (= tag "===")))
                  [
                   locations
                   (update-in location [:tags] #(conj (or % []) tag))

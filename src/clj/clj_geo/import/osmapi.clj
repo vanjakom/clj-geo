@@ -34,7 +34,15 @@
 (def client-redirect-url "urn:ietf:wg:oauth:2.0:oob")
 (def client-scope "read_prefs write_api")
 
+;; to be used from other methods to obtain current oauth2 token
 (def client-token (atom nil))
+
+
+#_(oauth2-authorize)
+;; "https://www.openstreetmap.org/oauth2/authorize?response_type=code&client_id=__aGylfKQ3iF8fQvnVxQ_yzsRQ3nlJkIso1C21rjRb4&redirect_uri=urn:ietf:wg:oauth:2.0:oob&scope=read_prefs write_api"
+;; it's ok to past latest token because it's short lived
+;; call to populate token with valid token
+#_(oauth2-token "0PFYAGQTK8bfirPHycZk-jqmCzNkjEgsPXKgwR_NA44")
 
 (def changelog-path ["tmp" "osmapi-changelog"])
 
@@ -283,9 +291,6 @@
    "https://www.openstreetmap.org/oauth2/authorize?response_type=code&client_id="
    client-id "&redirect_uri=" client-redirect-url "&scope=" client-scope))
 
-#_(oauth2-authorize)
-;; "https://www.openstreetmap.org/oauth2/authorize?response_type=code&client_id=__aGylfKQ3iF8fQvnVxQ_yzsRQ3nlJkIso1C21rjRb4&redirect_uri=urn:ietf:wg:oauth:2.0:oob&scope=read_prefs write_api"
-
 (defn oauth2-token
   "Performs Oauth2 /token to retrieve token from authorization code. To be called
   from repl by passing retrieved autorization code. Retrieved token will be set
@@ -303,10 +308,6 @@
       (let [access-token (:access_token (json/read-keyworded (:body response)))]
         (swap! client-token (constantly access-token))
         access-token))))
-
-;; it's ok to past latest token because it's short lived
-;; call to populate token with valid token
-#_(oauth2-token "7949o-OeqaNpiqnwVRfC7ISHfZmrDYuL7W9P9z8p_wE")
 
 (defn permissions
   "Performs /api/0.6/permissions"
@@ -366,17 +367,22 @@
   "Performs /api/0.6/changesets"
   [display-name min-timestamp]
   (let [url (str *server* "/api/0.6/changesets.json")
-        iso-timestamp (unix-to-iso8601 unix-timestamp)
+        iso-timestamp (timestamp->time-string min-timestamp)
         params {:display_name display-name
-                :time (str iso-timestamp ",")}  ;; Keep trailing comma for optional max timestamp
-        response (client/get url
-                             {:headers {"Authorization" (str "Bearer " access-token)}
-                              :query-params params
-                              :as :json})]  ;; Automatically parse JSON response
+                :time (str iso-timestamp)}
+        token (deref client-token)
+        response (clj-http/get url
+                             {:headers {"Authorization" (str "Bearer " token)}
+                              :query-params params})]
     (if (= 200 (:status response))
-      (:body response)  ;; Returns parsed JSON as Clojure map
-      (throw (Exception. (str "Failed to fetch changesets: " (:body response))))))
-  )
+      (json/read-keyworded (:body response))
+      (throw (Exception. (str "Failed to fetch changesets: " (:body response)))))))
+
+#_(run!
+ println
+ (map
+  #(get-in % [:tags :comment])
+  (:changesets (changesets "Komadinovic Vanja" 1745798400000))))
 
 (defn changeset-download
   "Performs /api/0.6/changeset/#id/download"

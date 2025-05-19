@@ -1,4 +1,7 @@
-(defproject com.mungolab/clj-geo "0.2.0-SNAPSHOT"
+(defproject
+  com.mungolab/clj-geo
+  "0.2.0"
+  
   :description "collections of fns to help working with geo data"
   :url "https://github.com/vanjakom/clj-geo"
   :license {:name "Eclipse Public License"
@@ -9,9 +12,13 @@
                  ["slimjars" "https://mvn.slimjars.com"]
                  ["topobyte.de" "https://mvn.topobyte.de/"]]
   :source-paths ["src/clj" "src/cljc"]
+  :deploy-repositories [
+                        ["clojars" {
+                                    :url "https://clojars.org/repo"
+                                    :sign-releases false}]]  
   :dependencies [
-                 [com.mungolab/clj-common "0.3.0-SNAPSHOT"]
-                 [com.mungolab/clj-scraper "0.1.0-SNAPSHOT"]
+                 [com.mungolab/clj-common "0.3.2"]
+                 [com.mungolab/clj-scraper "0.1.0"]
                  
                  [org.clojure/data.json "0.2.6"]
                  [org.clojure/data.xml "0.0.8"]

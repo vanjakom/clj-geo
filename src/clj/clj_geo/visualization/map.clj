@@ -374,7 +374,7 @@
 (defn tile-overlay-osm-hiking-relation
   ([name relation-id activate show-nodes zoom-to]
    (let [dataset (osmapi/relation-full relation-id)
-         relation (get-in dataset [:relations relation-id])
+         relation (get-in dataset [:relation relation-id])
          data (geojson/geojson
                (filter
                 some?
@@ -384,14 +384,14 @@
                      (= (:type member) :way)
                      (let [nodes (map
                                   (fn [id]
-                                    (let [node (get-in dataset [:nodes id])]
+                                    (let [node (get-in dataset [:node id])]
                                       {
                                        :longitude (as/as-double (:longitude node))
                                        :latitude (as/as-double (:latitude node))}))
-                                  (:nodes (get-in dataset [:ways (:id member)])))]
+                                  (:nodes (get-in dataset [:way (:id member)])))]
                        (geojson/line-string nodes))
                      (and show-nodes (= (:type member) :node))
-                     (let [node (get-in dataset [:nodes (:id member)])]
+                     (let [node (get-in dataset [:node (:id member)])]
                        (geojson/point
                         (as/as-double (:longitude node))
                         (as/as-double (:latitude node))

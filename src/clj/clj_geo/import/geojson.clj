@@ -17,6 +17,7 @@
 (def color-red "#FF0000")
 (def color-green "#00FF00")
 (def color-orange "#FFA500")
+(def color-yellow "#FFFF00")
 (def color-pink "#FFC0CB")
 (def color-purple "#800080")
 

@@ -11,7 +11,7 @@
                  ["osgeo repo" "https://repo.osgeo.org/repository/release/"]
                  ["slimjars" "https://mvn.slimjars.com"]
                  ["topobyte.de" "https://mvn.topobyte.de/"]]
-  :source-paths ["src/clj" "src/cljc"]
+  :source-paths ["src/clj" "src/cljc" "src/cljs"]
   :deploy-repositories [
                         ["clojars" {
                                     :url "https://clojars.org/repo"

@@ -13,10 +13,16 @@
    [clj-common.localfs :as fs]
    [clj-common.view :as view]
    [clj-common.context :as context]
-   [clj-geo.env :as env])
+   [clj-geo.env :as env]
+
+   [clj-geo.osm.histset :as histset])
   (:import
    java.io.InputStream))
 
+
+;; 20251004
+;; todo maybe switch to osmapi version of xml -> entry
+;; potential issue with longitude, latitude being string
 (defn parse-xml-entry [entry]
   (cond
     (= (:tag entry) :node)
@@ -157,6 +163,63 @@
         (async/close! ch)
         (context/set-state context "completion")))))
 
+
+;; old read osm pbf, had issues with historical data
+#_(defn read-osm-pbf-go
+    "Reads osm pbf and emits nodes, ways and relations to specific channels. If
+  given channel is nil emit will be ignored.
+  note: structure of data returned should mimic one returned by reading xml
+  using read-osm-go.
+  todo: support stopping, currently whole pbf must be read"
+    [context path node-ch way-ch relation-ch]
+    (let [sink (reify
+                 org.openstreetmap.osmosis.core.task.v0_6.Sink
+                 (initialize [this conf])
+                 (process [this entity]
+                   (context/set-state context "step")
+                   (cond
+                     (instance?
+                      org.openstreetmap.osmosis.core.container.v0_6.NodeContainer
+                      entity)
+                     (do
+                       (context/counter context "node-in")
+                       (when node-ch
+                         (async/>!! node-ch (read-pbf-node entity))
+                         (context/counter context "node-out")))
+                     (instance?
+                      org.openstreetmap.osmosis.core.container.v0_6.WayContainer
+                      entity)
+                     (do
+                       (context/counter context "way-in")
+                       (when way-ch
+                         (async/>!! way-ch (read-pbf-way entity))
+                         (context/counter context "way-out")))
+                     (instance?
+                      org.openstreetmap.osmosis.core.container.v0_6.RelationContainer
+                      entity)
+                     (do
+                       (context/counter context "relation-in")
+                       (when relation-ch
+                         (async/>!! relation-ch (read-pbf-relation entity))
+                         (context/counter context "relation-out")))
+                     :else
+                     (context/counter context "error-unknown-type")))
+                 (complete [this])
+                 (close [this]))]
+      (async/thread
+        (context/set-state context "init")
+        (with-open [is (fs/input-stream path)]
+          (let [reader (new crosby.binary.osmosis.OsmosisReader is)]
+            (.setSink reader sink)
+            (.run reader)))
+        (when node-ch
+          (async/close! node-ch))
+        (when way-ch
+          (async/close! way-ch))
+        (when relation-ch
+          (async/close! relation-ch))
+        (context/set-state context "completion"))))
+
 (defn read-osm-pbf-go
   "Uses osm4j to read pbf, should support historical pbfs"
   [context path node-ch way-ch relation-ch]
@@ -175,16 +238,19 @@
                 metadata (.getMetadata entity)
                 user (when (some? metadata) (.getUser metadata))
                 timestamp (when (some? metadata) (.getTimestamp metadata))
+                changeset (when (some? metadata) (.getChangeset metadata))
+                version (when (some? metadata) (.getVersion metadata))
                 visible (when (some? metadata) (.isVisible metadata))
                 object {
-                          :id id
-                          ;; removed, legacy, to reduce footprint
-                          ;; :osm tags
-                          :tags tags
-                          :user user
-                          :timestamp timestamp
+                        :id id
+                        ;; removed, legacy, to reduce footprint
+                        ;; :osm tags
+                        :tags tags
+                        :user user
+                        :timestamp timestamp
+                        :changeset changeset
+                        :version version
                         :visible visible}]
-            (def a entity)
             (cond
               (= (.getType next) de.topobyte.osm4j.core.model.iface.EntityType/Node)
               (let [node (assoc object
@@ -220,16 +286,16 @@
                                           :type (cond
                                                   (= (.getType member)
                                                      de.topobyte.osm4j.core.model.iface.EntityType/Node)
-                                                 :node
-                                                 (= (.getType member)
-                                                    de.topobyte.osm4j.core.model.iface.EntityType/Way)
-                                                 :way
-                                                 (= (.getType member)
-                                                    de.topobyte.osm4j.core.model.iface.EntityType/Relation)
-                                                 :relation
+                                                  :node
+                                                  (= (.getType member)
+                                                     de.topobyte.osm4j.core.model.iface.EntityType/Way)
+                                                  :way
+                                                  (= (.getType member)
+                                                     de.topobyte.osm4j.core.model.iface.EntityType/Relation)
+                                                  :relation
 
-                                                 :else
-                                                 nil)
+                                                  :else
+                                                  nil)
                                           :id (.getId member)
                                           :role (.getRole member)}))
                                      (range (.getNumberOfMembers entity))))]
@@ -240,7 +306,8 @@
                   (context/counter context "relation-skip")))
 
               :else
-              (context/counter context "unknown-type"))))))
+              (context/counter context "unknown-type"))
+            (context/set-state context "step")))))
     (when node-ch
       (async/close! node-ch))
     (when way-ch
@@ -466,6 +533,85 @@
             (do
               (async/close! way-out)
               (context/set-state context "completion"))))))))
+
+(defn relation-histset-go
+  "First reads relations, aggregating all versions in histset and all node and
+  way ids that need to find in way-in and node-in. Next reads ways, aggregates
+  needed and accumulates nodes that are required. At the end adds to histset
+  required nodes by reading all nodes from node channel."
+  [context relation-id node-in way-in relation-in histset-out]
+  (async/go
+    (context/set-state context "init")
+    ;; go over relations
+    (loop [node-set #{}
+           way-set #{}
+           histset (histset/histset-create)
+           relation (async/<! relation-in)]
+      (if relation
+        (do
+          (context/set-state context "relation-scan")
+          (context/increment-counter context "relation-in")
+          (if (= (:id relation) relation-id)
+            (do
+              (context/increment-counter context "relation-match")
+              (recur
+               (into node-set (filter some? (map
+                                             (fn [member]
+                                               (when (= (:type member) :node)
+                                                 (:id member)))
+                                             (:members relation))))
+               (into way-set (filter some? (map
+                                            (fn [member]
+                                              (when (= (:type member) :way)
+                                                (:id member)))
+                                            (:members relation))))
+               (histset/histset-append-relation histset relation)
+               (async/<! relation-in)))
+            (recur
+             node-set
+             way-set
+             histset
+             (async/<! relation-in))))
+        ;; go over ways
+        (loop [node-set node-set
+               histset histset
+               way (async/<! way-in)]
+          (if way
+            (do
+              (context/set-state context "way-scan")
+              (context/increment-counter context "way-in")
+              (if (contains? way-set (:id way))
+                (do
+                  (context/increment-counter context "way-match")
+                  (recur
+                   (into node-set (:nodes way))
+                   (histset/histset-append-way histset way)
+                   (async/<! way-in)))
+                (recur
+                 node-set
+                 histset
+                 (async/<! way-in))))
+            ;; go over nodes
+            (loop [histset histset
+                   node (async/<! node-in)]
+              (if node
+                (do
+                  (context/set-state context "node-scan")
+                  (context/increment-counter context "node-in")
+                  (if (contains? node-set (:id node))
+                    (do
+                      (context/increment-counter context "node-match")
+                      (recur
+                       (histset/histset-append-node histset node)
+                       (async/<! node-in)))
+                    (recur
+                     histset
+                     (async/<! node-in))))
+                (do
+                  (async/>! histset-out histset)
+                  (async/close! histset-out)
+                  (context/set-state context "completion"))))))))))
+
 
 (defn wikipedia-url [wikipedia-tag]
   (let [[lang article] (clojure.string/split wikipedia-tag #":")]

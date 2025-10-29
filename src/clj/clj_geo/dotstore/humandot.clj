@@ -120,9 +120,6 @@
       (conj locations location)
       locations)))
 
-;; todo
-;; support for processing and extractors
-
 (defn print [is]
   (let [locations (read is)]
     (doseq [location locations]
@@ -130,17 +127,33 @@
       (doseq [tag (:tags location)]
         (println "\t" tag)))))
 
-(defn write-to-string [location]
+(defn write-to-string [dot]
   (str
-   (:longitude location) ", " (:latitude location) "\n"
+   (:longitude dot) ", " (:latitude dot) "\n"
    (reduce
     (fn [buffer tag]
       (str buffer "   " tag "\n"))
     ""
-    (:tags location))))
+    (:tags dot))))
+
+(defn write [os header-line-seq dot-seq]
+  (io/write-line os "[humandot]")
+  (io/write-new-line os)
+  (doseq [header-line header-line-seq]
+    (io/write-line os (str "; " header-line)))
+  (io/write-new-line os)
+  (doseq [dot dot-seq]
+    (io/write-line os (write-to-string dot))
+    (io/write-new-line os)))
+
+
+;; todo
+;; support for processing and extractors
+
+
 
 #_(println (write-to-string
-          {:longitude 20 :latitude 44 :tags ["Location 1" "#test"]}))
+            {:longitude 20 :latitude 44 :tags ["Location 1" "#test"]}))
 
 #_(with-open [is (fs/input-stream
                 ["Users" "vanja" "dataset-git" "dots" "template.dot"])]

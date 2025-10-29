@@ -82,6 +82,7 @@
    :timestamp (time-string->timestamp (:timestamp (:attrs node)))
    ;; keep longitude and latitude as strings to prevent diff as
    ;; result of conversion ?
+   ;; 20250720 kept it as string but dataset functions should return as long
    :longitude (:lon (:attrs node))
    :latitude (:lat (:attrs node))
    :tags (reduce
@@ -92,6 +93,15 @@
              (:v (:attrs tag))))
           {}
           (:content node))})
+
+(defn node-parse-coordinates
+  "To be used with dataset functions which relay on coordinates being
+  double."
+  [node]
+  (assoc
+   node
+   :longitude (as/as-double (:longitude node))
+   :latitude (as/as-double (:latitude node))))
 
 (defn node->node-xml
   [node]
@@ -134,6 +144,7 @@
                      (filter
                       #(= (:tag %) :nd)
                       (:content way-xml)))}]
+    ;; todo remove this? there are methods for extraction of center from dataset
     ;; support for overpass center extraction, will be added as longitude latitude
     (if-let [center (first (filter #(= (:tag %) :center) (:content way-xml)))]
       (assoc
@@ -428,14 +439,14 @@
    (fn [dataset element]
      (cond
        (= (:tag element) :node)
-       (let [node (node-xml->node element)]
-         (update-in dataset [:nodes (:id node)] (constantly node)))
+       (let [node (node-parse-coordinates (node-xml->node element))]
+         (update-in dataset [:node (:id node)] (constantly node)))
        (= (:tag element) :way)
        (let [way (way-xml->way element)]
-         (update-in dataset [:ways (:id way)] (constantly way)))
+         (update-in dataset [:way (:id way)] (constantly way)))
        (= (:tag element) :relation)
        (let [relation (relation-xml->relation element)]
-         (update-in dataset [:relations (:id relation)] (constantly relation)))
+         (update-in dataset [:relation (:id relation)] (constantly relation)))
        :else
        dataset))
    {}
@@ -450,102 +461,30 @@
    (fn [dataset element]
      (cond
        (= (:tag element) :node)
-       (let [node (node-xml->node element)]
+       (let [node (node-parse-coordinates (node-xml->node element))]
          (update-in
           dataset
-          [:nodes (:id node)]
+          [:node (:id node)]
           (fn [versions]
             (sort-by :version (conj versions node)))))
        (= (:tag element) :way)
        (let [way (way-xml->way element)]
          (update-in
           dataset
-          [:ways (:id way)]
+          [:way (:id way)]
           (fn [versions]
             (sort-by :version (conj versions way)))))
        (= (:tag element) :relation)
        (let [relation (relation-xml->relation element)]
          (update-in
           dataset
-          [:relations (:id relation)]
+          [:relation (:id relation)]
           (fn [versions]
             (sort-by :version (conj versions relation)))))
        :else
        dataset))
    {}
    elements))
-
-;; util functions
-
-(defn histset-create [] {})
-
-(defn histset-merge [& histset-seq]
-  (let  [update-fn (fn [element-map element-seq]
-                     (println "map" element-map)
-                     (reduce
-                      (fn [element-map element]
-                        (println "element" element)
-                        (let [id (:id (first element))]
-                          (println id)
-                          (if-let [old-element (get element-map id)]
-                            ;; element with most versions win
-                            (if (> (count old-element) (count element))
-                              element-map
-                              (assoc element-map id element))
-                            (assoc element-map id element))))
-                      element-map
-                      element-seq))]
-    (reduce
-     (fn [final histset]
-       {
-        :nodes
-        (update-fn (or (:nodes final) {}) (vals (:nodes histset)))
-        :ways
-        (update-fn (or (:ways final) {}) (vals (:ways histset)))
-        :relations
-        (update-fn (or (:relations final) {}) (vals (:relations histset)))})
-     (first histset-seq)
-     (rest histset-seq))))
-
-(defn histset-append-relation
-  [histset relation]
-  (update-in
-   histset
-   [:relations (:id relation)]
-   #(conj (or % []) relation)))
-
-
-(defn histset-append-way
-  [histset way]
-  (update-in
-   histset
-   [:ways (:id way)]
-   #(conj (or % []) way)))
-
-
-(defn histset-append-node
-  [histset node]
-  (update-in
-   histset
-   [:nodes (:id node)]
-   #(conj (or % []) node)))
-
-(def dataset-at-t dataset/dataset-at-t)
-
-#_(merge-histsets
- {
-  :nodes
-  {
-   1 [{:id 1 :version 1} {:id 1 :version 2} {:id 1 :version 3}]}}
- {
-  :nodes
-  {
-   1 [{:id 1 :version 1} {:id 1 :version 2} {:id 1 :version 3} {:id 1 :version 4}]}})
-#_{
- :nodes
- {1 [{:id 1, :version 1} {:id 1, :version 2} {:id 1, :version 3} {:id 1, :version 4}]},
- :ways {},
- :relations {}}
 
 (defn node
   "Performs /api/0.6/[node|way|relation]/#id"
@@ -561,9 +500,9 @@
   [id]
   (println "[osmapi] node" id)
   {
-   :nodes
+   :node
    {
-    id (node id)}})
+    id (node-parse-coordinates (node id))}})
 
 (defn nodes
   "Performs /api/0.6/[nodes|ways|relations]?#parameters
@@ -594,6 +533,7 @@
                     {
                      :id -1
                      :version 1
+                     ;; todo assuming string?
                      :longitude longitude
                      :latitude latitude
                      :tags tag-map})
@@ -703,7 +643,7 @@
  #(println (:tags %))
  (get-in
      (node-history 2496289175)
-     [:nodes 2496289175]))
+     [:node 2496289175]))
 
 (defn way
   "Performs /api/0.6/[node|way|relation]/#id"
@@ -819,7 +759,7 @@
  #(println (:tags %))
  (get-in
   (way-history 484429139)
-  [:ways 484429139]))
+  [:way 484429139]))
 
 (defn relation
   "Performs /api/0.6/[node|way|relation]/#id"
@@ -948,6 +888,7 @@
   ;; retrieve all ways needed for relation over time
   ;; retrieve all nodes needed for relation over time
 
+  ;; too many requests, implemented in batch ( osm.clj )
 
   ;; todo
   nil
@@ -957,7 +898,7 @@
  #(println "count of members:" (count (:members %)))
  (get-in
   (relation-history 12693206)
-  [:relations 12693206]))
+  [:relation 12693206]))
 
 #_(def a (relation-history 10903395))
 #_(first (:members (first (:elements a))))
@@ -1273,9 +1214,9 @@
          (compare-element previous next))
         next])
      []
-     (get-in (node-history id) [:nodes id]))))
+     (get-in (node-history id) [:node id]))))
   ([id version]
-   (let [versions (get-in (node-history id) [:nodes id])]
+   (let [versions (get-in (node-history id) [:node id])]
      (compare-element
       (first
        (filter #(= (:version %) (dec version)) versions))
@@ -1300,9 +1241,9 @@
          (compare-element previous next))
         next])
      []
-     (get-in (way-history id) [:ways id]))))
+     (get-in (way-history id) [:way id]))))
   ([id version]
-   (let [versions (get-in (way-history id) [:ways id])]
+   (let [versions (get-in (way-history id) [:way id])]
      (compare-element
       (first
        (filter #(= (:version %) (dec version)) versions))
@@ -1310,7 +1251,7 @@
        (filter #(= (:version %) version) versions))))))
 
 #_(keys (relation-history 12452310))
-#_(first (:members (first (get-in (relation-history 12452310) [:relations 12452310]))))
+#_(first (:members (first (get-in (relation-history 12452310) [:relation 12452310]))))
 
 (defn calculate-relation-change
   "Support two modes, retrieve entire history or just at given version"
@@ -1324,9 +1265,9 @@
          (compare-element previous next))
         next])
      []
-     (get-in (relation-history id) [:relations id]))))
+     (get-in (relation-history id) [:relation id]))))
   ([id version]
-   (let [versions (get-in (relation-history id) [:relatiosns id])]
+   (let [versions (get-in (relation-history id) [:relation id])]
      (compare-element
       (first
        (filter #(= (:version %) (dec version)) versions))
@@ -1339,7 +1280,7 @@
 
 #_(run!
  #(println (clojure.string/join "," (map :id (:members %))))
- (get-in (relation-history 12452310) [:relations 12452310]))
+ (get-in (relation-history 12452310) [:relation 12452310]))
 
 (defn report-change [version change]
   (when (not (= version (:version change)))
@@ -1408,7 +1349,6 @@
                (str
                 *server*
                 "/api/0.6/map?bbox=" left "," bottom "," right "," top)))]
-    ;; todo parse, returns raw response
     (full-xml->dataset (:content bbox))))
 
 #_(map-bounding-box 20.61906 45.19066 20.62567 45.19471)
@@ -1425,115 +1365,37 @@
      "&page=0"))))
 
 ;; util functions to work with extracted dataset
-(defn merge-datasets [& dataset-seq]
-  (reduce
-   (fn [final dataset]
-     (assoc
-      final
-      :nodes
-      (merge (:nodes final) (:nodes dataset))
-      :ways
-      (merge (:ways final) (:ways dataset))
-      :relations
-      (merge (:relations final) (:relations dataset))))
-   (first dataset-seq)
-   (rest dataset-seq)))
+;; todo moved to cljc namespace, migrate
+;; 20251004 removed links to speed up migration
+#_(def merge-datasets dataset/merge-datasets)
+#_(def dataset-append-node dataset/dataset-append-node)
+#_(def dataset-append-way dataset/dataset-append-way)
+#_(def dataset-append-relation dataset/dataset-append-relation)
+#_(def extract-way dataset/extract-way)
+#_(def extract-relation dataset/extract-relation)
+#_(def way-center dataset/way-center)
+#_(def relation-center dataset/relation-center)
 
-(defn dataset-append-node [dataset node]
-  (update-in dataset [:nodes (:id node)] (constantly node) ))
-
-(defn dataset-append-way [dataset way]
-  (update-in dataset [:ways (:id way)] (constantly way) ))
-
-(defn dataset-append-relation [dataset relation]
-  (update-in dataset [:relations (:id relation)] (constantly relation) ))
-
-(defn extract-way
-  [dataset way-id]
-  (update-in
-   (get-in dataset [:ways way-id])
-   [:nodes]
-   (fn [ids]
-     (map
-      #(get-in dataset [:nodes %])
-      ids))))
-
-(defn extract-relation
-  [dataset relation-id]
-  (update-in
-   (get-in dataset [:relations relation-id])
-   [:ways]
-   (fn [ids]
-     (map
-      #(extract-way dataset %)))))
-
-
-(defn way-center [dataset id]
-  (let [way (get-in dataset [:ways id])
-        min-longitude (apply
-                       min
-                       (map
-                        #(as/as-double (:longitude (get-in dataset [:nodes %])))
-                        (:nodes way)))
-        max-longitude (apply
-                       max
-                       (map
-                        #(as/as-double (:longitude (get-in dataset [:nodes %])))
-                        (:nodes way)))
-        min-latitude (apply
-                       min
-                       (map
-                        #(as/as-double (:latitude (get-in dataset [:nodes %])))
-                        (:nodes way)))
-        max-latitude (apply
-                       max
-                       (map
-                        #(as/as-double (:latitude (get-in dataset [:nodes %])))
-                        (:nodes way)))]
-    {
-     :longitude (+ min-longitude (/ (- max-longitude min-longitude) 2))
-     :latitude (+ min-latitude (/ (- max-latitude min-latitude) 2))}))
-
-#_(way-center valjevske-dataset 641859168)
-
-(defn relation-center [dataset id]
-  (let [relation (get-in dataset [:relations id])
-        nodes (mapcat
-               (fn [member]
-                 (let [way (get-in dataset [:ways (:id member)])]
-                   (map
-                    #(get-in dataset [:nodes %])
-                    (:nodes way))))
-               (filter #(= (:type %) :way) (:members relation)))
-        min-longitude (apply min (map #(as/as-double (:longitude %)) nodes))
-        max-longitude (apply max (map  #(as/as-double (:longitude %)) nodes))
-        min-latitude (apply min (map  #(as/as-double (:latitude %)) nodes))
-        max-latitude (apply max (map  #(as/as-double (:latitude %)) nodes))]
-    {
-     :longitude (+ min-longitude (/ (- max-longitude min-longitude) 2))
-     :latitude (+ min-latitude (/ (- max-latitude min-latitude) 2))}))
-
-#_(relation-center valjevske-dataset 11835344)
-
-
+;; todo 20250708 deprecated, see where is used but maybe osm/extract-location
+;; is better choice
 (defn element->location [dataset element]
   (let [type (.substring element 0 1)
         id (as/as-long (.substring element 1))]
     (cond
-      (= type "n") (let [location (get-in dataset [:nodes id])]
+      (= type "n") (let [location (get-in dataset [:node id])]
                      {
                       :longitude (:longitude location)
                       :latitude (:latitude location)
                       :tags (:tags location)})
-      (= type "w") (let [way (get-in dataset [:ways id])
-                         center (way-center dataset id)]
+      (= type "w") (let [way (get-in dataset [:way id])
+                         center (dataset/way-center dataset id)]
                      {
                       :longitude (:longitude center)
                       :latitude (:latitude center)
                       :tags (:tags way)})
       ;; todo
-      (= type "r") (let [relation (get-in dataset [:relations id])
-                         center (relation-center dataset id)]
+      (= type "r") (let [relation (get-in dataset [:relation id])
+                         center (dataset/relation-center dataset id)]
                      {
                       :longitude (:longitude center)
                       :latitude (:latitude center)

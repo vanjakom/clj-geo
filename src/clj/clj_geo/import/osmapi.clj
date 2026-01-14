@@ -389,11 +389,33 @@
       (json/read-keyworded (:body response))
       (throw (Exception. (str "Failed to fetch changesets: " (:body response)))))))
 
+;; #osm #osmapi #user #changeset
+;; print changeset id and comment
 #_(run!
- println
- (map
-  #(get-in % [:tags :comment])
-  (:changesets (changesets "Komadinovic Vanja" 1745798400000))))
+   println
+   (map
+    #(str (get-in % [:id]) " " (get-in % [:tags :comment]))
+    (:changesets (changesets "Komadinovic Vanja" 1762034195000))))
+
+;; #osm #osmapi #user #changeset
+;; print changeset id, comment modified and created elements
+#_(doseq [changeset (take 10
+                          (:changesets (changesets "Komadinovic Vanja" 1762034195000)))]
+    (println (str (get-in changeset [:id]) " " (get-in changeset [:tags :comment])))
+    (let [changeset (changeset-download (:id changeset))]
+      (println "modify")
+      (doseq [entity (:modify changeset)]
+        (println "\t" (str "http://osm.org/"
+                           (name (:type entity))
+                           "/" (:id entity))))
+      (println "create")
+      (doseq [entity (:create changeset)]
+        (println "\t"
+                 (str "http://osm.org/"
+                      (name (:type entity))
+                      "/" (:id entity))
+                 (get-in entity [:tags "name"])))))
+
 
 (defn changeset-download
   "Performs /api/0.6/changeset/#id/download"
@@ -401,10 +423,10 @@
   (osmc-xml->changeset
    (xml/parse
     (http/with-basic-auth
-      *user*
-      *password*
-      (http/get-as-stream
-       (str *server* "/api/0.6/changeset/" changeset "/download"))))))
+        *user*
+        *password*
+        (http/get-as-stream
+         (str *server* "/api/0.6/changeset/" changeset "/download"))))))
 
 (defn ensure-changeset
   "Either retrieves active changeset for comment or creates new one"

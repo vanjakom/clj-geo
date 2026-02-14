@@ -39,10 +39,11 @@
 
 ;; todo support "@" for location without coordinates, to be extracted
 
-(defn location [longitude latitude tags]
+(defn create-location [longitude latitude tags]
   {
    :longitude longitude
    :latitude latitude
+   ;; vector of tags in order given in file
    :tags tags})
 
 (defn read [is]
@@ -105,10 +106,7 @@
                    longitude (as/as-double (get fields 0))
                    latitude (as/as-double (get fields 1))]
                [locations
-                {
-                 :longitude longitude
-                 :latitude latitude
-                 :tags (into [] tags)}
+                (create-location longitude latitude tags)
                 tags])
 
              :else
@@ -146,6 +144,12 @@
     (io/write-line os (write-to-string dot))
     (io/write-new-line os)))
 
+
+(defn tags-as-set [location]
+  (assoc
+   location
+   :tags
+   (into #{} (:tags location))))
 
 ;; todo
 ;; support for processing and extractors

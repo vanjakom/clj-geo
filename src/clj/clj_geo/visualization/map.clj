@@ -303,8 +303,13 @@
   "Addition to mapbox simple style, support marker-body, html that will be added
   to marker popup
   note: setting icon was not working, probably simple style overrides later,
-  implementing same specs from scratch"
-  ;; todo finish implementation from scratch
+  implementing same specs from scratch
+  supported properties:
+    marker-icon - url for icon image
+    marker-div  - custom html for div marker
+    marker-color - color for div marker (default colored circle)
+    marker-body - html for popup content
+  marker-icon is checked first, then marker-div, fallback is default marker"
   ([name data zoom-to activate]
    (let [var-name (unique-var-name "layer")]
      (str
@@ -313,13 +318,22 @@
       "\t\t\t\t{\n"
       "\t\t\t\t\tuseSimpleStyle: false,\n"
       "\t\t\t\t\tpointToLayer: function(geojson, latlng) {\n"
-      "\t\t\t\t\t\tvar marker = L.marker(latlng)\n"
       "\t\t\t\t\t\tvar markerIcon = geojson.properties['marker-icon']\n"
+      "\t\t\t\t\t\tvar markerDiv = geojson.properties['marker-div']\n"
+      "\t\t\t\t\t\tvar marker\n"
       "\t\t\t\t\t\tif (markerIcon != null) {\n"
       "\t\t\t\t\t\t\tvar icon = L.icon({\n"
       "\t\t\t\t\t\t\t\ticonUrl: markerIcon,\n"
       "\t\t\t\t\t\t\t\ticonSize: [25,25]})\n"
-      "\t\t\t\t\t\t\tmarker.setIcon(icon)\n"
+      "\t\t\t\t\t\t\tmarker = L.marker(latlng, {icon: icon})\n"
+      "\t\t\t\t\t\t} else if (markerDiv != null) {\n"
+      "\t\t\t\t\t\t\tvar divIcon = L.divIcon({\n"
+      "\t\t\t\t\t\t\t\thtml: markerDiv,\n"
+      "\t\t\t\t\t\t\t\tclassName: '',\n"
+      "\t\t\t\t\t\t\t\ticonSize: [12,12]})\n"
+      "\t\t\t\t\t\t\tmarker = L.marker(latlng, {icon: divIcon})\n"
+      "\t\t\t\t\t\t} else {\n"
+      "\t\t\t\t\t\t\tmarker = L.marker(latlng)\n"
       "\t\t\t\t\t\t}\n"
       "\t\t\t\t\t\tvar markerBody = geojson.properties['marker-body']\n"
       "\t\t\t\t\t\tif (markerBody == null) {\n"

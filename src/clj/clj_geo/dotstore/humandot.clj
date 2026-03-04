@@ -47,58 +47,50 @@
    :tags tags})
 
 (defn read [is]
-  (let [[locations location tags]
+  ;; go over lines, skip comments and empty lines
+  ;; extract default-tags and other directives
+  ;; extract locations
+  ;; at the end apply directives ( default tags ... )
+  (let [[locations location default-tags]
         (reduce
-         (fn [[locations location tags] line]
+         (fn [[locations location default-tags] line]
            #_(println "[" (count locations) "]" location)
            (cond
              ;; comment
              (.startsWith line ";")
-             [locations location tags]
+             [locations location default-tags]
 
              ;; [humandot]
              (= line "[humandot]")
-             [locations location tags]
+             [locations location default-tags]
 
              ;; [statement]
              (and (.startsWith line "[") (.endsWith line "]"))
              (let [statement (.substring line 1 (dec (.length line)))]
                (if (.startsWith statement "tag:")
                  (let [tag (.substring statement 4)]
-                   [locations location (conj tags tag)])
-                 [locations location tags]))
+                   [locations location (conj default-tags tag)])
+                 [locations location default-tags]))
              
              ;; empty line
              (and (clojure.string/blank? line) (some? location))
-             [(conj locations location) nil tags]
+             [(conj locations location) nil default-tags]
              (and (clojure.string/blank? line) (nil? location))
-             [locations nil tags]
+             [locations nil default-tags]
 
              ;; tag
              (or (.startsWith line " ") (.startsWith line "\t"))
              (let [tag (.trim line)]
-               (if (and
-                    (not (contains? tags tag))
-                    ;; special tag to divide extracted tags from added ones
-                    ;; 20250226 leaving it in tags to support parsing of it
-                    ;; and private tags section
-                    ;; added public tags section start
-                    #_(not (= tag "---"))
-                    ;; added private tags section start
-                    #_(not (= tag "===")))
-                 [
-                  locations
-                  (update-in location [:tags] #(conj (or % []) tag))
-                  tags]
-                 ;; do not add tag if already on global
-                 [
-                  locations
-                  location
-                  tags]))
+               [
+                locations
+                (update-in location [:tags] #(conj % tag))
+                default-tags])
 
-             (= line "@")
+             ;; 20260304 initially plan was to have location placeholder which
+             ;; would be dynamically populated but it's abandoned
              ;; start new location
-             [locations {} tags]
+             ;;(= line "@")
+             ;;[locations {} tags]
 
              ;; not tag, then if has , it's location
              (.contains line ",")
@@ -106,17 +98,23 @@
                    longitude (as/as-double (get fields 0))
                    latitude (as/as-double (get fields 1))]
                [locations
-                (create-location longitude latitude tags)
-                tags])
+                (create-location longitude latitude [])
+                default-tags])
 
-             :else
              ;; skip
-             [locations location tags]))
-         [[] nil #{}]
+             :else
+             [locations location default-tags]))
+         ;; 20260304 fixing bug with tags being set, must be vector
+         [[] nil []]
          (io/input-stream->line-seq is))]
-    (if (some? location)
-      (conj locations location)
-      locations)))
+    (let [final-locations (if (some? location)
+                            (conj locations location)
+                            locations)]
+      ;; add default tags to the end
+      (map
+       (fn [location]
+        (update-in location [:tags] #(concat % default-tags)))
+       final-locations))))
 
 (defn print [is]
   (let [locations (read is)]

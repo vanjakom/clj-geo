@@ -104,3 +104,20 @@
      :latitude (+ min-latitude (/ (- max-latitude min-latitude) 2))}))
 
 #_(relation-center valjevske-dataset 11835344)
+
+(defn print-dataset [dataset]
+  (println "nodes:")
+  (doseq [[id node] (:node dataset)]
+    (println "\t" id)
+    (doseq [[key value] (:tags node)]
+      (println "\t\t" key "=" value)))
+  (println "ways:")
+  (doseq [[id way] (:way dataset)]
+    (println "\t" id)
+    (doseq [[key value] (:tags way)]
+      (println "\t\t" key "=" value)))
+  (println "relations:")
+  (doseq [[id relation] (:relation dataset)]
+    (println "\t" id)
+    (doseq [[key value] (:tags relation)]
+      (println "\t\t" key "=" value))))

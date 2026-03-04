@@ -39,10 +39,10 @@
 
 
 #_(oauth2-authorize)
-;; "https://www.openstreetmap.org/oauth2/authorize?response_type=code&client_id=__aGylfKQ3iF8fQvnVxQ_yzsRQ3nlJkIso1C21rjRb4&redirect_uri=urn:ietf:wg:oauth:2.0:oob&scope=read_prefs write_api"
+;; https://www.openstreetmap.org/oauth2/authorize?response_type=code&client_id=__aGylfKQ3iF8fQvnVxQ_yzsRQ3nlJkIso1C21rjRb4&redirect_uri=urn:ietf:wg:oauth:2.0:oob&scope=read_prefs write_api
 ;; it's ok to past latest token because it's short lived
 ;; call to populate token with valid token
-#_(oauth2-token "0PFYAGQTK8bfirPHycZk-jqmCzNkjEgsPXKgwR_NA44")
+#_(oauth2-token "iR3Xi3eWIFSPUfDC0iGJcYMjIcpYVykLgzBQ4qD4plI")
 
 (def changelog-path ["tmp" "osmapi-changelog"])
 
@@ -333,31 +333,36 @@
 (defn changeset-create
   "Performs /api/0.6/changeset/create"
   [comment tags]
-  (as/as-long
-   (io/input-stream->string
-    (http/with-basic-auth
-      *user*
-      *password*
-      (http/put-as-stream
-       (str *server* "/api/0.6/changeset/create")
-       (io/string->input-stream
-        (xml/emit-str
-         (xml/element
-          :osm
-          {}
-          (xml/element
-           :changeset
-           {}
-           (conj
-            (map
-             (fn [[tag value]]
-               (xml/element
-                :tag
-                {:k tag :v value}))
-             tags)
-            (xml/element
-             :tag
-             {:k "comment" :v comment})))))))))))
+  (println "[OSMAPI] /api/0.6/changeset/create")
+  (let [response (clj-http/put
+                  (str *server* "/api/0.6/changeset/create")
+                  {
+                   :as :stream
+                   :throw-exceptions false
+                   :headers {"Authorization" (str "Bearer " (deref client-token))}
+                   :body (io/string->input-stream
+                          (xml/emit-str
+                           (xml/element
+                            :osm
+                            {}
+                            (xml/element
+                             :changeset
+                             {}
+                             (conj
+                              (map
+                               (fn [[tag value]]
+                                 (xml/element
+                                  :tag
+                                  {:k tag :v value}))
+                               tags)
+                              (xml/element
+                               :tag
+                               {:k "comment" :v comment}))))))})]
+    (println "[OSMAPI]" (:status response))
+      (as/as-long
+       (io/input-stream->string
+        ;; 20260222 switch to oauth and clj-http
+        (:body response)))))
 
 (defn changeset-close
   "Performs /api/0.6/changeset/#id/close"
@@ -833,10 +838,15 @@
                    (relation->relation-xml relation)
                    [:attrs :changeset]
                    (constantly changeset))))]
-    (if-let [is (http/with-basic-auth *user* *password*
-                  (http/put-as-stream
-                   (str *server* "/api/0.6/relation/" id)
-                   (io/string->input-stream content)))]
+    ;; 20260222 switch to oauth and clj-http
+    (if-let [is (:body
+                 (clj-http/put
+                  (str *server* "/api/0.6/relation/" id)
+                  {
+                   :as :stream
+                   :throw-exceptions false
+                   :headers {"Authorization" (str "Bearer " (deref client-token))}
+                   :body (io/string->input-stream content)}))]
       (io/input-stream->string is)
       (do
         (logging/report

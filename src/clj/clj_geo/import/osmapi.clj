@@ -42,7 +42,7 @@
 ;; https://www.openstreetmap.org/oauth2/authorize?response_type=code&client_id=__aGylfKQ3iF8fQvnVxQ_yzsRQ3nlJkIso1C21rjRb4&redirect_uri=urn:ietf:wg:oauth:2.0:oob&scope=read_prefs write_api
 ;; it's ok to past latest token because it's short lived
 ;; call to populate token with valid token
-#_(oauth2-token "iR3Xi3eWIFSPUfDC0iGJcYMjIcpYVykLgzBQ4qD4plI")
+#_(oauth2-token "dDmxx259wmUXxrZTkdHV0vf4KZnt0RBsZfRlYNMDae4")
 
 (def changelog-path ["tmp" "osmapi-changelog"])
 

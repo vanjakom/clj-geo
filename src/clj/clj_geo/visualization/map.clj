@@ -182,6 +182,13 @@
    "Map data: © OpenStreetMap contributors, SRTM | Map display: © OpenTopoMap (CC-BY-SA)"
    activate))
 
+(defn tile-layer-thunderforest-transportation [token activate]
+  (tile-layer
+   "Thunderforest Transportation"
+   (str "https://api.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=" token)
+   "Maps © Thunderforest, Data © OpenStreetMap contributors"
+   activate))
+
 (defn tile-overlay-waymarked-hiking [activate]
   (tile-overlay
    "hiking waymarked trails"

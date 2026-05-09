@@ -183,6 +183,28 @@
         (:coordinates (:geometry feature))))
      (:features geojson))))
 
+(defn print-debug
+  "Prints tree-like representation of a GeoJSON map to stdout."
+  ([geojson]
+   (print-debug geojson ""))
+  ([geojson indent]
+   (let [type (:type geojson)]
+     (cond
+       (= type "FeatureCollection")
+       (do
+         (println (str indent "FeatureCollection"))
+         (doseq [feature (:features geojson)]
+           (print-debug feature (str indent "   "))))
+
+       (= type "Feature")
+       (let [geometry-type (get-in geojson [:geometry :type])]
+         (println (str indent "Feature " geometry-type))
+         (doseq [[k v] (:properties geojson)]
+           (println (str indent "   " (name k) ": " v))))
+
+       :else
+       (println (str indent "Unknown: " type))))))
+
 (defn write-geojson-go
   [context path feature-in]
   (async/go

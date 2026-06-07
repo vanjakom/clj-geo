@@ -1,4 +1,4 @@
-(ns clj-geo.dotstore.humandot
+(ns clj-geo.dot.store.humandot
   (:require
    [clj-common.as :as as]
    [clj-common.io :as io]
@@ -39,7 +39,7 @@
 
 ;; todo support "@" for location without coordinates, to be extracted
 
-(defn create-location [longitude latitude tags]
+(defn create-dot [longitude latitude tags]
   {
    :longitude longitude
    :latitude latitude
@@ -98,7 +98,7 @@
                    longitude (as/as-double (get fields 0))
                    latitude (as/as-double (get fields 1))]
                [locations
-                (create-location longitude latitude [])
+                (create-dot longitude latitude [])
                 default-tags])
 
              ;; skip
@@ -164,7 +164,3 @@
 #_(with-open [is (fs/input-stream
                 ["Users" "vanja" "dataset-git" "dots" "camps.dot"])]
   (print is))
-
-
-
-

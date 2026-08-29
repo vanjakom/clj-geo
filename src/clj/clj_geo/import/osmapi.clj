@@ -1478,3 +1478,86 @@
       (:content
        (first
         (filter #(= (:tag %) :id) (:content (first (:content (xml/parse is)))))))))))
+
+(defn note-xml->note
+  "Parses <note> element as found in planet notes dump ( id, lat, lon,
+  closed_at are attributes, comment is direct child with action / user
+  attributes and text as element content ). Note: /api/0.6/notes response
+  uses a different shape, see api-note-xml->note"
+  [note-xml]
+  {
+   :id (as/as-long (:id (:attrs note-xml)))
+   :longitude (as/as-double (:lon (:attrs note-xml)))
+   :latitude (as/as-double (:lat (:attrs note-xml)))
+   :closed? (some? (:closed_at (:attrs note-xml)))
+   :comments (map
+              (fn [comment-xml]
+                {
+                 :user (:user (:attrs comment-xml))
+                 :text (first (:content comment-xml))})
+              (filter #(= (:tag %) :comment) (:content note-xml)))})
+
+(defn- xml-child-text [xml tag]
+  (first (:content (first (filter #(= (:tag %) tag) (:content xml))))))
+
+(defn api-note-xml->note
+  "Parses <note> element as returned by /api/0.6/notes, /api/0.6/notes/#id
+  and /api/0.6/notes/search: id and status are child elements ( not
+  attributes ), comments are wrapped in a <comments> element and each
+  comment's user / text are child elements. Note: planet notes dump uses a
+  different, attribute based shape, see note-xml->note"
+  [note-xml]
+  (let [comments-xml (first (filter #(= (:tag %) :comments) (:content note-xml)))]
+    {
+     :id (as/as-long (xml-child-text note-xml :id))
+     :longitude (as/as-double (:lon (:attrs note-xml)))
+     :latitude (as/as-double (:lat (:attrs note-xml)))
+     :closed? (= "closed" (xml-child-text note-xml :status))
+     :comments (map
+                (fn [comment-xml]
+                  {
+                   :user (xml-child-text comment-xml :user)
+                   :text (xml-child-text comment-xml :text)})
+                (filter #(= (:tag %) :comment) (:content comments-xml)))}))
+
+(defn notes-bounding-box
+  "Performs /api/0.6/notes?bbox=left,bottom,right,top
+  Note: OSM API rejects bbox with area above 25 square degrees and returns
+  at most limit notes ( up to 10000 ), no paging is available on top of
+  that limit. Pass closed -1 to include all notes regardless of state, not
+  just ones closed in last 7 days ( API default ).
+  Note: uses clj-http directly instead of clj-common.http/get-as-stream
+  since latter swallows status code / body on non 200 response, making
+  failures hard to diagnose"
+  ([left bottom right top]
+   (notes-bounding-box left bottom right top 10000 -1))
+  ([left bottom right top limit closed]
+   (let [url (str
+              *server*
+              "/api/0.6/notes?bbox=" left "," bottom "," right "," top
+              "&limit=" limit
+              "&closed=" closed)
+         response (clj-http/get url {:as :stream :throw-exceptions false})
+         body (io/input-stream->string (:body response))]
+     (when (not (= (:status response) 200))
+       (println "[osmapi] notes-bounding-box status" (:status response))
+       (println "[osmapi] notes-bounding-box body" (subs body 0 (min 2000 (count body)))))
+     (if (not (= (:status response) 200))
+       (throw
+        (ex-info
+         "failed to retrieve notes for bbox"
+         {:url url :status (:status response) :body body}))
+       (try
+         (doall
+          (map api-note-xml->note (:content (xml/parse (io/string->input-stream body)))))
+         (catch Exception e
+           (println "[osmapi] notes-bounding-box parse failure, body:")
+           (println (subs body 0 (min 2000 (count body))))
+           (throw
+            (ex-info
+             "failed to parse notes response, see :body for raw content received"
+             {
+              :url url
+              :status (:status response)
+              :body (subs body 0 (min 2000 (count body)))}
+             e))))))))

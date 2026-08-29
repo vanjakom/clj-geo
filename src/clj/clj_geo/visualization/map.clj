@@ -249,12 +249,12 @@
      "\t\t\tlayers.addBaseLayer(" var-name ", 'bing satellite')\n\n")))
 
 
-(defn tile-layer-google-satellite [add]
+(defn tile-layer-google-satellite [activate]
   (tile-layer
    "google satellite tile"
    "http://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}"
    "&copy; Google"
-   add))
+   activate))
 
 
 (defn geojson-layer

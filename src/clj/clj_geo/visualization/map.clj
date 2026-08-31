@@ -8,9 +8,17 @@
    [clj-common.json :as json]
    [clj-common.localfs :as fs]
    [clj-common.path :as path]
+   [clj-geo.dot.store.humandot :as humandot]
    [clj-geo.import.geojson :as geojson]
    [clj-geo.import.gpx :as gpx]
    [clj-geo.import.osmapi :as osmapi]))
+
+(def color-red "#FF0000")
+(def color-green "#00FF00")
+(def color-blue "#0000FF")
+(def color-yellow "#FFFF00")
+(def color-white "#FFFFFF")
+(def color-black "#000000")
 
 (defn indent [value]
   (str "\t" value))
@@ -438,6 +446,64 @@
    (tile-overlay-gpx name gpx-is true false)))
 (def geojson-gpx-layer tile-overlay-gpx)
 
+(defn tile-overlay-dot-layer
+  "Renders given humandot dot-seq as a geojson-style-extended-layer under
+  given name, each location becomes a marker with its tags joined into the
+  popup body, tags longer than 80 chars are wrapped onto multiple lines,
+  tags in |url|label|link format ( see zanimljiva-geografija.job.notes/
+  note->dot ) are rendered as a single link line"
+  ([name dot-seq zoom-to activate]
+   (let [wrap-line-fn
+         (fn [text width]
+           (reduce
+            (fn [lines word]
+              (if (empty? lines)
+                [word]
+                (let [current-line (peek lines)]
+                  (if (<= (+ (count current-line) 1 (count word)) width)
+                    (conj (pop lines) (str current-line " " word))
+                    (conj lines word)))))
+            []
+            (clojure.string/split text #" ")))
+         link-line-fn
+         (fn [line]
+           (clojure.string/replace
+            line
+            #"https?://\S+"
+            (fn [url] (str "<a href='" url "' target='_blank'>" url "</a>"))))
+         url-tag-fn
+         (fn [tag]
+           (when (.startsWith tag "|url|")
+             (let [splits (.split tag "\\|")]
+               (str "<a href='" (nth splits 3) "' target='_blank'>" (nth splits 2) "</a>"))))
+         prepare-body-fn
+         (fn [tags]
+           (clojure.string/join
+            "<br/>"
+            (mapcat
+             (fn [tag]
+               (if-let [url-line (url-tag-fn tag)]
+                 [url-line]
+                 (map
+                  link-line-fn
+                  (if (> (count tag) 80)
+                    (wrap-line-fn tag 80)
+                    [tag]))))
+             tags)))]
+     (geojson-style-extended-layer
+      name
+      (map
+       (fn [location]
+         (geojson/marker
+          (:longitude location)
+          (:latitude location)
+          (prepare-body-fn (:tags location))))
+       dot-seq)
+      zoom-to
+      activate)))
+  ([name dot-seq]
+   (tile-overlay-dot-layer name dot-seq false true)))
+
 (defn map-setup-block []
   (str
    "\t\t\tvar map = L.map('map', {maxBoundsViscosity: 1.0})\n"
@@ -599,10 +665,3 @@
     "\t\t</script>\n"
     "\t</body>\n"
     "</html>\n"))
-
-(def color-red "#FF0000")
-(def color-green "#00FF00")
-(def color-blue "#0000FF")
-(def color-yellow "#FFFF00")
-(def color-white "#FFFFFF")
-(def color-black "#000000")

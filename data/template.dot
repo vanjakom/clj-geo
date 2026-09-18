@@ -1,0 +1,55 @@
+[humandot]
+[extract:osm]
+
+; defined in clj-geo.dotstore.humandot
+
+; template file for specification of dot of type humandot
+; use as starting point for documentation and template for creation of new files
+;
+; file should start with [humandot]
+; after first line additional customization could be set in "[statement]" form
+; where content of statement is arbitrary
+;
+; comments are starting with ;
+;
+; location should be longitude, latitude pair
+; if location should be extracted use @ at start
+;
+; tags should be in lines after location indented with space(s) or tab
+; tags should start with #
+; reference to osm as osm website link ( use https when possible )
+; https://www.openstreetmap.org/relation/11097832
+; use "---" to divide extracted from human added tags, useful for regeneration
+;
+; location ends when either of following happends
+;    empty line
+;    line which is not comment is not indented
+;
+; location extraction ( useful for references originally coming from osm ) should
+; happen only once ( replacing @ with longitude, latitude pair ) using either
+; specific extractor or generic one which will use location from first line
+; that can be extracted
+;
+; it's nice practice to add comment about tags used
+; tags used
+;    #tag1 - generic tag
+;
+;
+; global tags ( for whole file ) could be defined with
+; [tag:#life]
+;
+; use trek-mate.integration.overpass/prepare-humandot to prepare from osm data
+
+
+20.22431, 43.89035
+   #tag1
+   free text
+   free text
+   https://www.openstreetmap.org/relation/11489032
+
+@
+   currently not implemented
+   location will be extracted from first line that extractor undestands
+   osm in this case
+   https://www.openstreetmap.org/relation/11489032
+   https://www.pincamp.de/campingplaetze/kur-gutshof-camping-arterhof

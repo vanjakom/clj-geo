@@ -5,8 +5,7 @@
    [clj-common.localfs :as fs]
    [clj-common.path :as path]))
 
-;; use /Users/vanja/dataset-git/dots/template.dot
-;; to create new human-dots
+;; use data/template.dot as template to create new human-dots
 
 ;; format definition
 ;; file should start with [humandot]
